@@ -21,8 +21,8 @@ module vga #(
     output logic active, // high when in active region, safe to drive pixels
     output logic hsync,
     output logic vsync,
-    output logic h_begin, // start of new line
-    output logic v_begin // start of new frame
+    output logic hpos, // start of new line
+    output logic vpos // start of new frame
 );
 
 localparam int H_SYNC_START = H_ACTIVE + H_FRONT_PORCH;

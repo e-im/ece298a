@@ -22,29 +22,6 @@ module tt_um_fractal (
     wire [1:0] colour_mode = ui_in[4:3];
     wire max_iter_sel = ui_in[5];
     
-    logic clk_25mhz; // 25MHz vga clock from 50MHz input/engine clock
-    logic clk_div;
-    always_ff @(posedge clk or negedge rst_n) begin
-        if (!rst_n) begin
-            clk_div <= 1'b0;
-        end else begin
-            clk_div <= ~clk_div
-        end
-    end
-    assign clk_25mhz = clk_div;
-
-
-    logic vga_active;
-    logic vga_hsync, vga_vsync;
-    logic h_begin, v_begin;
-    logic [9:0] current_x, current_y;
-    
-    vga vga_timing (
-        .clk(clk_25mhz),
-        .rst_n(rst_n)
-        .clk_en()
-    )
-
     // fixed test pixel coordinates - testing center of screen
     wire [9:0] pixel_x = 10'd320;  // center X
     wire [9:0] pixel_y = 10'd240;  // center Y
@@ -94,6 +71,40 @@ module tt_um_fractal (
         .green(green),
         .blue(blue)
     );
+
+
+    logic clk_25mhz; // 25MHz vga clock from 50MHz input/engine clock
+    logic clk_div;
+    always_ff @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            clk_div <= 1'b0;
+        end else begin
+            clk_div <= ~clk_div
+        end
+    end
+    assign clk_25mhz = clk_div;
+
+
+    logic vga_active;
+    logic vga_hsync, vga_vsync;
+    logic h_begin, v_begin;
+    logic [9:0] current_x, current_y;
+    
+    logic vga_advance; // advance when pixel ready or when in blanking (not active)
+    assign vga_advance = pixel_ready | ~vga_active;
+
+
+    vga vga_timing (
+        .clk(clk_25mhz),
+        .rst_n(rst_n),
+        .clk_en(vga_advance & clk_25mhz),
+        .active(vga_active),
+        .hsync(vga_hsync),
+        .vsync(vga_vsync),
+        .h_begin(h_begin),
+        .v_begin(v_begin),
+    )
+
     
     // output assignments - VGA-style pinout
     assign uo_out = {
