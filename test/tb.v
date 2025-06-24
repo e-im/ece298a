@@ -13,6 +13,45 @@ module tb ();
     #1;
   end
 
+  // generate 50MHz clock (20ns period)
+  initial begin
+    clk = 0;
+    forever #10 clk = ~clk;  // toggle every 10ns = 50MHz
+  end
+
+  // test stimulus
+  initial begin
+    // initialize signals
+    rst_n = 0;
+    ena = 1;
+    ui_in = 8'b10000000;  // enable=1, default color mode
+    uio_in = 8'b00000000;
+    
+    // hold reset for a few cycles
+    #100;
+    rst_n = 1;
+    
+    // run for enough time to see computation
+    #10000;
+    
+    // test different colour modes
+    ui_in = 8'b10001000;  // enable=1, color_mode=1
+    #2000;
+    
+    ui_in = 8'b10010000;  // enable=1, color_mode=2
+    #2000;
+    
+    ui_in = 8'b10011000;  // enable=1, color_mode=3
+    #2000;
+    
+    // test disable
+    ui_in = 8'b00000000;  // disable
+    #1000;
+    
+    $display("Simulation completed");
+    $finish;
+  end
+
   // Wire up the inputs and outputs:
   reg clk;
   reg rst_n;
@@ -24,7 +63,7 @@ module tb ();
   wire [7:0] uio_oe;
 
   // Replace tt_um_example with your module name:
-  tt_um_example user_project (
+  tt_um_fractal user_project (
       .ui_in  (ui_in),    // Dedicated inputs
       .uo_out (uo_out),   // Dedicated outputs
       .uio_in (uio_in),   // IOs: Input path
