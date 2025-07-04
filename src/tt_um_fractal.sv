@@ -86,7 +86,7 @@ module tt_um_fractal (
         .center_x(centre_x),
         .center_y(centre_y),
         .zoom_level(zoom_level),
-        // .max_iter_limit(max_iter_limit), need to make this in mandelbrot_engine
+        .max_iter_limit(max_iter_limit),
         .enable(ui_in[7]),
         .iteration_count(iteration_count),
         .result_valid(result_valid),

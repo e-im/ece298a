@@ -6,7 +6,6 @@
 module mandelbrot_engine #(
     parameter COORD_WIDTH = 16,  // fixed-point coordinate width
     parameter FRAC_BITS = 12,    // fractional bits (Q4.12 format)
-    parameter MAX_ITER = 63,     // maximum iterations (fits in 6 bits for 64 colours)
     parameter SCREEN_CENTER_X = 320,  // screen center X (for VGA: 320)
     parameter SCREEN_CENTER_Y = 240   // screen center Y (for VGA: 240)
 ) (
@@ -22,6 +21,7 @@ module mandelbrot_engine #(
     input  logic signed [15:0] center_x,    // complex plane center X
     input  logic signed [15:0] center_y,    // complex plane center Y
     input  logic [7:0] zoom_level,          // zoom factor (0 = widest view)
+    input  logic [5:0] max_iter_limit,      // for iter sel
     
     // control
     input  logic enable,
@@ -187,7 +187,7 @@ module mandelbrot_engine #(
             CHECK_ESCAPE: begin
                 // check if magnitude squared is greater than escape threshold or if iteration count is greater than max iterations
                 if (magnitude_sq >= $signed({{(32-COORD_WIDTH){ESCAPE_THRESHOLD[COORD_WIDTH-1]}}, ESCAPE_THRESHOLD}) || 
-                    iter_count >= MAX_ITER[5:0]) begin
+                    iter_count >= max_iter_limit) begin
                     next_state = DONE;
                 end else begin
                     next_state = ITERATE;
