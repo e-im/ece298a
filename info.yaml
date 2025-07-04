@@ -19,6 +19,7 @@ project:
   source_files:
     - "mandelbrot_engine.sv"
     - "vga.sv"
+    - "param_controller.sv"
     - "tt_um_fractal.sv"
 
 # The pinout of your project. Leave unused pins blank. DO NOT delete or add any pins.
