@@ -15,7 +15,7 @@ module vga #(
     parameter int V_BACK_PORCH = 33 //top
 )(
     input logic clk,
-    input logic reset,
+    input logic rst_n,
     input logic clk_en, // pixel clock enable
 
     output logic active, // high when in active region, safe to drive pixels
@@ -36,7 +36,7 @@ localparam int V_SYNC_END = V_ACTIVE + V_FRONT_PORCH + V_SYNC - 1;
 localparam int V_MAX = V_ACTIVE + V_FRONT_PORCH + V_BACK_PORCH + V_SYNC - 1;
 
 always_ff @(posedge clk) begin
-    if (reset) begin
+    if (!rst_n) begin
         hpos <= '0;
         vpos <= '0;
     end else if (clk_en) begin
