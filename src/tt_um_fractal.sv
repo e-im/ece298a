@@ -24,6 +24,40 @@ module tt_um_fractal (
     end
     assign clk_25mhz = clk_div;
 
+    logic rst_n_sync_ff1, rst_n_25mhz;
+    logic v_begin_sync_ff1, v_begin_sync;
+    logic result_valid_sync_ff1, result_valid_sync;
+
+    always_ff @(posedge clk_25mhz or negedge rst_n) begin
+        if (!rst_n) begin
+            rst_n_sync_ff1 <= 1'b0;
+            rst_n_25mhz    <= 1'b0;
+        end else begin
+            rst_n_sync_ff1 <= 1'b1;
+            rst_n_25mhz    <= rst_n_sync_ff1;
+        end
+    end
+
+    always_ff @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            v_begin_sync_ff1 <= 1'b0;
+            v_begin_sync     <= 1'b0;
+        end else begin
+            v_begin_sync_ff1 <= v_begin;
+            v_begin_sync     <= v_begin_sync_ff1;
+        end
+    end
+
+    always_ff @(posedge clk_25mhz or negedge rst_n) begin
+        if (!rst_n) begin
+            result_valid_sync_ff1 <= 1'b0;
+            result_valid_sync     <= 1'b0;
+        end else begin
+            result_valid_sync_ff1 <= result_valid;
+            result_valid_sync     <= result_valid_sync_ff1;
+        end
+    end
+
     logic vga_active; // active high when visible
     logic vga_hsync, vga_vsync; // sync pulses
     logic v_begin; //new frame
@@ -42,11 +76,11 @@ module tt_um_fractal (
 
 
     logic vga_advance;
-    assign vga_advance = result_valid || !vga_active; // computation finished, or in blanking period
+    assign vga_advance = result_valid_sync || !vga_active; // computation finished, or in blanking period
 
     vga vga_timing (
         .clk(clk_25mhz),
-        .rst_n(rst_n),
+        .rst_n(rst_n_25mhz),
         .clk_en(vga_advance),
         .active(vga_active),
         .hsync(vga_hsync),
@@ -63,7 +97,7 @@ module tt_um_fractal (
     ) param_ctrl (
         .clk(clk),
         .rst_n(rst_n),
-        .v_begin(v_begin),
+        .v_begin(v_begin_sync),
         .ui_in(ui_in),
         .uio_in(uio_in),
         .centre_x(centre_x),
@@ -96,7 +130,7 @@ module tt_um_fractal (
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             current_colour_mode <= 2'b00;
-        end else if (v_begin) begin
+        end else if (v_begin_sync) begin
             current_colour_mode <= ui_in[4:3];
         end
     end
