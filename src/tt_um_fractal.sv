@@ -45,9 +45,9 @@ module tt_um_fractal (
     assign vga_advance = result_valid || !vga_active; // computation finished, or in blanking period
 
     vga vga_timing (
-        .clk(clk),
+        .clk(clk_25mhz),
         .rst_n(rst_n),
-        .clk_en(vga_advance && clk_25mhz),
+        .clk_en(vga_advance),
         .active(vga_active),
         .hsync(vga_hsync),
         .vsync(vga_vsync),
