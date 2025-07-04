@@ -22,7 +22,10 @@ module vga #(
     output logic hsync,
     output logic vsync,
     output logic h_begin, // start of new line
-    output logic v_begin // start of new frame
+    output logic v_begin, // start of new frame
+    output logic [$clog2(H_MAX + 1) - 1 : 0] hpos,
+    output logic [$clog2(V_MAX + 1) - 1 : 0] vpos
+
 );
 
 localparam int H_SYNC_START = H_ACTIVE + H_FRONT_PORCH;
@@ -31,9 +34,6 @@ localparam int H_MAX = H_ACTIVE + H_BACK_PORCH + H_FRONT_PORCH + H_SYNC - 1;
 localparam int V_SYNC_START = V_ACTIVE + V_FRONT_PORCH;
 localparam int V_SYNC_END = V_ACTIVE + V_FRONT_PORCH + V_SYNC - 1;
 localparam int V_MAX = V_ACTIVE + V_FRONT_PORCH + V_BACK_PORCH + V_SYNC - 1;
-
-logic [$clog2(H_MAX + 1) - 1 : 0] hpos;
-logic [$clog2(V_MAX + 1) - 1 : 0] vpos;
 
 always_ff @(posedge clk) begin
     if (reset) begin
