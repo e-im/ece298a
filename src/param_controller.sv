@@ -53,11 +53,11 @@ module param_controller #(
                     current_zoom_level <= DEFAULT_ZOOM;
                 end else begin
                     if (pan_h_toggle) begin
-                        current_centre_x <= current_centre_x + ($signed(uio_in) <<< 4);
+                        current_centre_x <= current_centre_x + (COORD_WIDTH'($signed(uio_in)) <<< 4);
                     end
 
                     if (pan_v_toggle) begin
-                        current_centre_y <= current_centre_y + ($signed(uio_in) <<< 4);
+                        current_centre_y <= current_centre_y + (COORD_WIDTH'($signed(uio_in)) <<< 4);
                     end
 
                     if (zoom_toggle) begin

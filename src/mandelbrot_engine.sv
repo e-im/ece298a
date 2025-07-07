@@ -83,8 +83,8 @@ module mandelbrot_engine #(
         // Use proper width intermediate variables to avoid width warnings
         logic signed [31:0] pixel_offset_x_temp, pixel_offset_y_temp;
         
-        pixel_offset_x_temp = ($signed({1'b0, pixel_x}) - $signed(SCREEN_CENTER_X)) * $signed(scale_factor);
-        pixel_offset_y_temp = ($signed({1'b0, pixel_y}) - $signed(SCREEN_CENTER_Y)) * $signed(scale_factor);
+        pixel_offset_x_temp = (32'($signed({1'b0, pixel_x})) - 32'($signed(SCREEN_CENTER_X))) * $signed(scale_factor);
+        pixel_offset_y_temp = (32'($signed({1'b0, pixel_y})) - 32'($signed(SCREEN_CENTER_Y))) * $signed(scale_factor);
         
         pixel_offset_x = pixel_offset_x_temp[COORD_WIDTH-1:0];
         pixel_offset_y = pixel_offset_y_temp[COORD_WIDTH-1:0];
@@ -158,6 +158,11 @@ module mandelbrot_engine #(
                 DONE: begin
                     result_valid <= 1'b1;
                 end
+                
+                default: begin
+                    // Handle unexpected states
+                    result_valid <= 1'b0;
+                end
             endcase
         end
     end
@@ -198,6 +203,12 @@ module mandelbrot_engine #(
                 if (!pixel_valid) begin
                     next_state = IDLE;
                 end
+            end
+            
+            default: begin
+                // Handle unexpected states - return to IDLE
+                next_state = IDLE;
+                iter_count_next = '0;
             end
         endcase
     end
