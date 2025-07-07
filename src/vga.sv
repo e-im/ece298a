@@ -21,7 +21,6 @@ module vga #(
     output logic active, // high when in active region, safe to drive pixels
     output logic hsync,
     output logic vsync,
-    output logic h_begin, // start of new line
     output logic v_begin, // start of new frame
     output logic [$clog2(H_ACTIVE + H_BACK_PORCH + H_FRONT_PORCH + H_SYNC) - 1 : 0] hpos,
     output logic [$clog2(V_ACTIVE + V_FRONT_PORCH + V_BACK_PORCH + V_SYNC) - 1 : 0] vpos
@@ -40,10 +39,10 @@ always_ff @(posedge clk) begin
         hpos <= '0;
         vpos <= '0;
     end else if (clk_en) begin
-        if (hpos == H_MAX) begin
+        if (hpos == 10'(H_MAX)) begin
             hpos <= '0;
             //vert only on horz wrap
-            if (vpos == V_MAX)
+            if (vpos == 10'(V_MAX))
                 vpos <= '0;
             else
               vpos <= vpos + 1'b1;
@@ -54,12 +53,11 @@ always_ff @(posedge clk) begin
 end
 
 always_comb begin
-    hsync = !((hpos >= H_SYNC_START) && (hpos <= H_SYNC_END));
-    vsync = !((vpos >= V_SYNC_START) && (vpos <= V_SYNC_END));
-    active = (hpos < H_ACTIVE) && (vpos < V_ACTIVE);
+    hsync = !((hpos >= 10'(H_SYNC_START)) && (hpos <= 10'(H_SYNC_END)));
+    vsync = !((vpos >= 10'(V_SYNC_START)) && (vpos <= 10'(V_SYNC_END)));
+    active = (hpos < 10'(H_ACTIVE)) && (vpos < 10'(V_ACTIVE));
 
-    h_begin = clk_en && (hpos == H_MAX) && (vpos < V_ACTIVE);
-    v_begin = clk_en && (hpos == H_MAX) && (vpos == V_MAX);
+    v_begin = clk_en && (hpos == 10'(H_MAX)) && (vpos == 10'(V_MAX));
 end
 
 endmodule
