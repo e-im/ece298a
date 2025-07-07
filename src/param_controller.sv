@@ -1,5 +1,7 @@
 `default_nettype none
 
+/* verilator lint_off UNUSEDSIGNAL */
+
 module param_controller #(
     parameter COORD_WIDTH = 16, // Q4.12
     parameter ZOOM_WIDTH  = 8,
@@ -103,3 +105,5 @@ module param_controller #(
     assign max_iter_limit = current_max_iter;
 
 endmodule
+
+/* verilator lint_on UNUSEDSIGNAL */

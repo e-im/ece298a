@@ -35,6 +35,7 @@ module tb_png;
         .uio_in(uio_in),
         .uio_out(uio_out),
         .uio_oe(uio_oe),
+        .ena(ena),
         .clk(clk),
         .rst_n(rst_n)
     );

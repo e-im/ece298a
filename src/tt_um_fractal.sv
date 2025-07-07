@@ -11,8 +11,9 @@ module tt_um_fractal (
     input  wire [7:0] uio_in,   // IOs: Input path
     output wire [7:0] uio_out,  // IOs: Output path
     output wire [7:0] uio_oe,   // IOs: Enable path (active high: 0=input, 1=output)
-    // input  wire       ena,   // Removed unused ena port
     /* verilator lint_off UNUSEDSIGNAL */
+    input  wire       ena,      // always 1 when the design is powered, so you can ignore it
+    /* verilator lint_on UNUSEDSIGNAL */
     input  wire       clk,      // clock
     input  wire       rst_n     // reset_n - low to reset
 );

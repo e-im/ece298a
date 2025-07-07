@@ -1,4 +1,5 @@
 // colour mapper for converting iteration count to RGB
+/* verilator lint_off UNUSEDSIGNAL */
 module mandelbrot_colour_mapper (
     input  logic clk,               
     input  logic rst_n,             

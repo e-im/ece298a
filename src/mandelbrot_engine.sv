@@ -1,5 +1,8 @@
 `default_nettype none
 
+// Add lint suppression for unused bits and signals
+/* verilator lint_off UNUSEDSIGNAL */
+
 // mandelbrot computation engine with pixel coordinate interface
 // implements the escape time algorithm: z(n+1) = z(n)^2 + c
 // https://en.wikipedia.org/wiki/Plotting_algorithms_for_the_Mandelbrot_set
@@ -101,7 +104,7 @@ module mandelbrot_engine #(
     end
     
     // register coordinate mapping signals for timing
-    always_ff @(posedge clk or negedge rst_n) begin
+    always_ff @(posedge clk) begin
         if (!rst_n) begin
             scale_factor_reg <= BASE_SCALE;
             pixel_offset_x_reg <= '0;
@@ -140,7 +143,7 @@ module mandelbrot_engine #(
     end
     
     // register multiplication results to fix unclocked signals
-    always_ff @(posedge clk or negedge rst_n) begin
+    always_ff @(posedge clk) begin
         if (!rst_n) begin
             z_real_sq_reg <= '0;
             z_imag_sq_reg <= '0;
@@ -155,7 +158,7 @@ module mandelbrot_engine #(
     end
     
     // state machine logic
-    always_ff @(posedge clk or negedge rst_n) begin
+    always_ff @(posedge clk) begin
         if (!rst_n) begin
             state <= IDLE;
             z_real <= '0;
