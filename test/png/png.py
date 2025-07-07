@@ -17,6 +17,7 @@ async def reset_dut(dut):
     Applies a reset to the DUT and initializes inputs.
     """
     dut._log.info("start reset")
+    dut.ena.value = 1        # Add missing ena initialization
     dut.rst_n.value = 0
     dut.ui_in.value = 0
     dut.uio_in.value = 0
@@ -38,7 +39,7 @@ async def test_capture_first_frame(dut):
 
     # ui_in[7] ena
     # ui_in[4:3] colour mode
-    dut.ui_in.value = 0b10011000  # enable, colour = 3
+    dut.ui_in.value = 0b10011000  # enable, colour = 3 (rainbow mode)
     await Timer(1, units="ns")
     dut._log.info(f"fractal: {dut.ui_in.value.binstr}")
 
@@ -53,6 +54,7 @@ async def test_capture_first_frame(dut):
     stopper_task = cocotb.start_soon(frame_stopper())
 
     pixels_captured = 0
+    captured_pixels = set()  # track which pixels we've already captured
     
     timeout_cycles = H_TOTAL * V_TOTAL * 2 
     for _ in range(timeout_cycles):
@@ -66,21 +68,25 @@ async def test_capture_first_frame(dut):
             y = dut.pixel_y.value.integer
 
             if x < H_DISPLAY and y < V_DISPLAY:
-                # red[1:0] = {uo_out[0], uo_out[4]}
-                # green[1:0] = {uo_out[1], uo_out[5]}
-                # blue[1:0]  = {uo_out[2], uo_out[6]}
-                r_val = (dut.uo_out.value[0] << 1) | dut.uo_out.value[4]
-                g_val = (dut.uo_out.value[1] << 1) | dut.uo_out.value[5]
-                b_val = (dut.uo_out.value[2] << 1) | dut.uo_out.value[6]
+                pixel_coord = (x, y)
+                if pixel_coord not in captured_pixels:
+                    captured_pixels.add(pixel_coord)
+                    
+                    # red[1:0] = {uo_out[0], uo_out[4]}
+                    # green[1:0] = {uo_out[1], uo_out[5]}
+                    # blue[1:0]  = {uo_out[2], uo_out[6]}
+                    r_val = (dut.uo_out.value[0] << 1) | dut.uo_out.value[4]
+                    g_val = (dut.uo_out.value[1] << 1) | dut.uo_out.value[5]
+                    b_val = (dut.uo_out.value[2] << 1) | dut.uo_out.value[6]
 
-                # pillow only does 8 bit
-                # 255 / 3 (0, 1, 2, 3) = 85
-                r_8bit = r_val * 85
-                g_8bit = g_val * 85
-                b_8bit = b_val * 85
+                    # pillow only does 8 bit
+                    # 255 / 3 (0, 1, 2, 3) = 85
+                    r_8bit = r_val * 85
+                    g_8bit = g_val * 85
+                    b_8bit = b_val * 85
 
-                pixels[x, y] = (r_8bit, g_8bit, b_8bit)
-                pixels_captured += 1
+                    pixels[x, y] = (r_8bit, g_8bit, b_8bit)
+                    pixels_captured += 1
     else:
         dut._log.error(f"timeout in {timeout_cycles} reached")
         stopper_task.kill()
