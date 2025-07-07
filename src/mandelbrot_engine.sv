@@ -80,7 +80,7 @@ module mandelbrot_engine #(
     // map pixel coordinates to complex plane
     always_comb begin
         // center coordinates around configurable screen center
-        // Use proper width intermediate variables to avoid width warnings
+        // use proper width intermediate variables to avoid width warnings
         logic signed [31:0] pixel_offset_x_temp, pixel_offset_y_temp;
         
         pixel_offset_x_temp = (32'($signed({1'b0, pixel_x})) - 32'($signed(SCREEN_CENTER_X))) * $signed(scale_factor);
