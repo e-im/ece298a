@@ -55,9 +55,15 @@ module mandelbrot_engine #(
     logic [5:0] iter_count_next;
     logic signed [31:0] magnitude_sq;  // for escape test (z_real^2 + z_imag^2)
     
-    // coordinate mapping logic
-    logic signed [COORD_WIDTH-1:0] scale_factor;
+    // register multiplication results to fix unclocked signals
+    logic signed [COORD_WIDTH-1:0] z_real_sq_reg, z_imag_sq_reg, z_real_temp_reg;
+    logic signed [31:0] magnitude_sq_reg;
+    
+    // coordinate mapping logic - register these to fix unclocked signals
+    logic signed [COORD_WIDTH-1:0] scale_factor, scale_factor_reg;
     logic signed [COORD_WIDTH-1:0] pixel_offset_x, pixel_offset_y;
+    logic signed [COORD_WIDTH-1:0] pixel_offset_x_reg, pixel_offset_y_reg;
+    logic signed [COORD_WIDTH-1:0] c_real_next, c_imag_next;
     
     // extract bit ranges outside always blocks
     logic [2:0] zoom_level_bits;
@@ -83,15 +89,32 @@ module mandelbrot_engine #(
         // use proper width intermediate variables to avoid width warnings
         logic signed [31:0] pixel_offset_x_temp, pixel_offset_y_temp;
         
-        pixel_offset_x_temp = (32'($signed({1'b0, pixel_x})) - 32'($signed(SCREEN_CENTER_X))) * 32'($signed(scale_factor));
-        pixel_offset_y_temp = (32'($signed({1'b0, pixel_y})) - 32'($signed(SCREEN_CENTER_Y))) * 32'($signed(scale_factor));
+        pixel_offset_x_temp = (32'($signed({1'b0, pixel_x})) - 32'($signed(SCREEN_CENTER_X))) * 32'($signed(scale_factor_reg));
+        pixel_offset_y_temp = (32'($signed({1'b0, pixel_y})) - 32'($signed(SCREEN_CENTER_Y))) * 32'($signed(scale_factor_reg));
         
         pixel_offset_x = pixel_offset_x_temp[COORD_WIDTH-1:0];
         pixel_offset_y = pixel_offset_y_temp[COORD_WIDTH-1:0];
         
         // apply centering and scaling to map pixels to complex plane
-        c_real = center_x + (pixel_offset_x >>> FRAC_BITS);
-        c_imag = center_y + (pixel_offset_y >>> FRAC_BITS);
+        c_real_next = center_x + (pixel_offset_x_reg >>> FRAC_BITS);
+        c_imag_next = center_y + (pixel_offset_y_reg >>> FRAC_BITS);
+    end
+    
+    // register coordinate mapping signals for timing
+    always_ff @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            scale_factor_reg <= BASE_SCALE;
+            pixel_offset_x_reg <= '0;
+            pixel_offset_y_reg <= '0;
+            c_real <= '0;
+            c_imag <= '0;
+        end else begin
+            scale_factor_reg <= scale_factor;
+            pixel_offset_x_reg <= pixel_offset_x;
+            pixel_offset_y_reg <= pixel_offset_y;
+            c_real <= c_real_next;
+            c_imag <= c_imag_next;
+        end
     end
     
     // multiplier logic for z^2 computation
@@ -114,6 +137,21 @@ module mandelbrot_engine #(
         
         // temporary for z_real update (z_real_new = z_real^2 - z_imag^2 + c_real)
         z_real_temp = z_real_sq - z_imag_sq + c_real;
+    end
+    
+    // register multiplication results to fix unclocked signals
+    always_ff @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            z_real_sq_reg <= '0;
+            z_imag_sq_reg <= '0;
+            z_real_temp_reg <= '0;
+            magnitude_sq_reg <= '0;
+        end else begin
+            z_real_sq_reg <= z_real_sq;
+            z_imag_sq_reg <= z_imag_sq;
+            z_real_temp_reg <= z_real_temp;
+            magnitude_sq_reg <= magnitude_sq;
+        end
     end
     
     // state machine logic
@@ -149,7 +187,7 @@ module mandelbrot_engine #(
                     logic signed [31:0] z_cross_mult_temp;
                     z_cross_mult_temp = $signed(z_real) * $signed(z_imag);
                     
-                    z_real <= z_real_temp;  // z_real^2 - z_imag^2 + c_real
+                    z_real <= z_real_temp_reg;  // z_real^2 - z_imag^2 + c_real
                     z_imag <= z_cross_mult_temp[COORD_WIDTH+FRAC_BITS-2:FRAC_BITS-1] + c_imag; // 2*z_real*z_imag + c_imag
                     result_valid <= 1'b0;
                 end
@@ -196,7 +234,7 @@ module mandelbrot_engine #(
             // check escape condition
             CHECK_ESCAPE: begin
                 // check if magnitude squared is greater than escape threshold or if iteration count is greater than max iterations
-                if (magnitude_sq >= $signed({{(32-COORD_WIDTH){ESCAPE_THRESHOLD[COORD_WIDTH-1]}}, ESCAPE_THRESHOLD}) || 
+                if (magnitude_sq_reg >= $signed({{(32-COORD_WIDTH){ESCAPE_THRESHOLD[COORD_WIDTH-1]}}, ESCAPE_THRESHOLD}) || 
                     iter_count >= max_iter_limit) begin
                     next_state = DONE;
                 end else begin

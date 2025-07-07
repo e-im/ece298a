@@ -18,11 +18,24 @@ module param_controller #(
     output logic [ITER_WIDTH-1:0]         max_iter_limit
 );
 
-    wire zoom_toggle  = ui_in[0];
-    wire pan_h_toggle = ui_in[1];
-    wire pan_v_toggle = ui_in[2];
-    wire max_iter_sel = ui_in[5];
-    wire reset_view   = ui_in[6];
+    // register input control signals to fix unclocked signal warnings
+    logic zoom_toggle, pan_h_toggle, pan_v_toggle, max_iter_sel, reset_view;
+    
+    always_ff @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            zoom_toggle <= 1'b0;
+            pan_h_toggle <= 1'b0;
+            pan_v_toggle <= 1'b0;
+            max_iter_sel <= 1'b0;
+            reset_view <= 1'b0;
+        end else begin
+            zoom_toggle <= ui_in[0];
+            pan_h_toggle <= ui_in[1];
+            pan_v_toggle <= ui_in[2];
+            max_iter_sel <= ui_in[5];
+            reset_view <= ui_in[6];
+        end
+    end
 
     // default for reset call
     localparam signed [COORD_WIDTH-1:0] DEFAULT_CENTRE_X = 16'hF800; // -0.5

@@ -11,7 +11,7 @@ module tt_um_fractal (
     input  wire [7:0] uio_in,   // IOs: Input path
     output wire [7:0] uio_out,  // IOs: Output path
     output wire [7:0] uio_oe,   // IOs: Enable path (active high: 0=input, 1=output)
-    input  wire       ena,      // always 1 when the design is powered, so you can ignore it
+    // input  wire       ena,   // Removed unused ena port
     /* verilator lint_off UNUSEDSIGNAL */
     input  wire       clk,      // clock
     input  wire       rst_n     // reset_n - low to reset
@@ -96,9 +96,16 @@ module tt_um_fractal (
     reg [1:0] red_reg, green_reg, blue_reg;  // registered RGB outputs
     reg [1:0] current_colour_mode; // latched colour mode
 
-
     logic vga_advance;
-    assign vga_advance = result_valid_sync || !vga_active; // computation finished, or in blanking period
+    
+    // register vga_advance to fix unclocked signal warnings
+    always_ff @(posedge clk_25mhz or negedge rst_n_25mhz) begin
+        if (!rst_n_25mhz) begin
+            vga_advance <= 1'b0;
+        end else begin
+            vga_advance <= result_valid_sync || !vga_active;
+        end
+    end
 
     vga vga_timing (
         .clk(clk_25mhz),
@@ -159,6 +166,8 @@ module tt_um_fractal (
 
     wire in_set = (iteration_count >= max_iter_limit);
     mandelbrot_colour_mapper colour_mapper (
+        .clk(clk),
+        .rst_n(rst_n),
         .iteration_count(iteration_count),
         .colour_mode(current_colour_mode),
         .in_set(in_set),
