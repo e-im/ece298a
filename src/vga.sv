@@ -23,8 +23,8 @@ module vga #(
     output logic vsync,
     output logic h_begin, // start of new line
     output logic v_begin, // start of new frame
-    output logic [$clog2(H_MAX + 1) - 1 : 0] hpos,
-    output logic [$clog2(V_MAX + 1) - 1 : 0] vpos
+    output logic [$clog2(H_ACTIVE + H_BACK_PORCH + H_FRONT_PORCH + H_SYNC) - 1 : 0] hpos,
+    output logic [$clog2(V_ACTIVE + V_FRONT_PORCH + V_BACK_PORCH + V_SYNC) - 1 : 0] vpos
 
 );
 
