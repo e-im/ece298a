@@ -5,7 +5,7 @@
 SIM ?= icarus
 TOPLEVEL_LANG ?= verilog
 SRC_DIR = $(PWD)/../src
-PROJECT_SOURCES = mandelbrot_engine.sv vga.sv tt_um_fractal.sv
+PROJECT_SOURCES = mandelbrot_engine.sv mandelbrot_colour_mapper.sv vga.sv param_controller.sv tt_um_fractal.sv
 
 # Default test module - can be overridden with make MODULE=test
 MODULE ?= test
