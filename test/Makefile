@@ -43,6 +43,13 @@ tb-mandelbrot:
 	  VERILOG_SOURCES="$(PWD)/mandelbrot/tb_mandelbrot.v $(VERILOG_SOURCES)" \
 	  PYTHONPATH="$(PWD)/mandelbrot"
 
+tb-vga:
+	$(MAKE) sim \
+	  MODULE=vga \
+	  TOPLEVEL=tb_vga \
+	  VERILOG_SOURCES="$(PWD)/vga/tb_vga.sv $(SRC_DIR)/vga.sv" \
+	  PYTHONPATH="$(PWD)/vga"
+
 # clean all generated files
 clean_all: clean
 	rm -f sim_test tb.vcd *.vcd results.xml
