@@ -1,17 +1,55 @@
 `default_nettype none
+`timescale 1ns / 1ps
 
-module tb_vga (
-    input  logic clk,
-    input  logic rst_n,
-    input  logic clk_en,
+/* This testbench just instantiates the module and makes some convenient wires
+   that can be driven / tested by the cocotb test.py.
+*/
+module tb_vga ();
 
-    output logic active,
-    output logic hsync,
-    output logic vsync,
-    output logic v_begin,
-    output logic [9:0] hpos,
-    output logic [9:0] vpos
-);
+  // wire up the inputs and outputs
+  reg clk;
+  reg rst_n;
+  reg clk_en;
+  wire active;
+  wire hsync;
+  wire vsync;
+  wire v_begin;
+  wire [9:0] hpos;
+  wire [9:0] vpos;
+
+  // Dump the signals to a VCD file. You can view it with gtkwave or surfer.
+  initial begin
+    $dumpfile("tb.vcd");
+    $dumpvars(0, tb_vga);
+    #1;
+  end
+
+  // generate 25MHz clock (40ns period)
+  initial begin
+    clk = 0;
+    forever #20 clk = ~clk;  // toggle every 20ns = 25MHz
+  end
+
+  // test stimulus
+  initial begin
+    // initialize signals
+    rst_n = 0;
+    clk_en = 0;
+    
+    // hold reset for a few cycles
+    #100;
+    rst_n = 1;
+    
+    // enable clock after reset
+    #100;
+    clk_en = 1;
+    
+    // run for enough time to see VGA timing
+    #100000;
+    
+    $display("VGA simulation completed");
+    $finish;
+  end
 
 `ifdef VGA_MODE_LARGE
     parameter int H_ACTIVE      = 640;

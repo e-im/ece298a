@@ -83,8 +83,8 @@ module mandelbrot_engine #(
         // use proper width intermediate variables to avoid width warnings
         logic signed [31:0] pixel_offset_x_temp, pixel_offset_y_temp;
         
-        pixel_offset_x_temp = (32'($signed({1'b0, pixel_x})) - 32'($signed(SCREEN_CENTER_X))) * $signed(scale_factor);
-        pixel_offset_y_temp = (32'($signed({1'b0, pixel_y})) - 32'($signed(SCREEN_CENTER_Y))) * $signed(scale_factor);
+        pixel_offset_x_temp = (32'($signed({1'b0, pixel_x})) - 32'($signed(SCREEN_CENTER_X))) * 32'($signed(scale_factor));
+        pixel_offset_y_temp = (32'($signed({1'b0, pixel_y})) - 32'($signed(SCREEN_CENTER_Y))) * 32'($signed(scale_factor));
         
         pixel_offset_x = pixel_offset_x_temp[COORD_WIDTH-1:0];
         pixel_offset_y = pixel_offset_y_temp[COORD_WIDTH-1:0];
@@ -97,7 +97,9 @@ module mandelbrot_engine #(
     // multiplier logic for z^2 computation
     always_comb begin
         // compute z_real^2 and z_imag^2 with proper scaling using intermediate variables
+        /* verilator lint_off UNUSEDSIGNAL */
         logic signed [31:0] z_real_mult, z_imag_mult, z_cross_mult;
+        /* verilator lint_on UNUSEDSIGNAL */
         
         z_real_mult = $signed(z_real) * $signed(z_real);
         z_imag_mult = $signed(z_imag) * $signed(z_imag);
@@ -126,6 +128,7 @@ module mandelbrot_engine #(
             state <= next_state;
             iter_count <= iter_count_next;
             
+            /* verilator lint_off CASEINCOMPLETE */
             case (state)
                 IDLE: begin
                     result_valid <= 1'b0;
@@ -164,6 +167,7 @@ module mandelbrot_engine #(
                     result_valid <= 1'b0;
                 end
             endcase
+            /* verilator lint_on CASEINCOMPLETE */
         end
     end
     
@@ -172,6 +176,7 @@ module mandelbrot_engine #(
         next_state = state;
         iter_count_next = iter_count;
         
+        /* verilator lint_off CASEINCOMPLETE */
         case (state)
             IDLE: begin
                 if (pixel_valid && enable) begin
@@ -211,6 +216,7 @@ module mandelbrot_engine #(
                 iter_count_next = '0;
             end
         endcase
+        /* verilator lint_on CASEINCOMPLETE */
     end
     
     // output assignments

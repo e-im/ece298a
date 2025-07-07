@@ -116,11 +116,21 @@ async def test_clock_enable_low(dut):
     await cocotb.start(Clock(dut.clk, CLOCK_PERIOD_NS, units="ns").start())
     await reset_dut(dut)
     
+    # capture initial values before disabling clock
+    await ReadOnly()
+    initial_hpos = dut.hpos.value.integer
+    initial_vpos = dut.vpos.value.integer
+    
+    # now disable clock enable
+    await NextTimeStep()  # exit read-only phase
     dut.clk_en.value = 0
-    for _ in range(10):
+    await NextTimeStep()  # let signal assignment settle
+    
+    for i in range(10):
         await RisingEdge(dut.clk)
-        assert dut.hpos.value == 0, "hpos changed while clk_en was low"
-        assert dut.vpos.value == 0, "vpos changed while clk_en was low"
+        await ReadOnly()  # wait for signals to settle after clock edge
+        assert dut.hpos.value == initial_hpos, f"hpos changed from {initial_hpos} to {dut.hpos.value} on cycle {i+1} while clk_en was low"
+        assert dut.vpos.value == initial_vpos, f"vpos changed from {initial_vpos} to {dut.vpos.value} on cycle {i+1} while clk_en was low"
 
 @cocotb.test()
 async def test_full_frame_timing(dut):

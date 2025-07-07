@@ -12,6 +12,7 @@ module tt_um_fractal (
     output wire [7:0] uio_out,  // IOs: Output path
     output wire [7:0] uio_oe,   // IOs: Enable path (active high: 0=input, 1=output)
     input  wire       ena,      // always 1 when the design is powered, so you can ignore it
+    /* verilator lint_off UNUSEDSIGNAL */
     input  wire       clk,      // clock
     input  wire       rst_n     // reset_n - low to reset
 );
@@ -70,6 +71,7 @@ module tt_um_fractal (
     logic [5:0] iteration_count;
     logic result_valid;
     logic engine_busy;
+    /* verilator lint_off UNUSEDSIGNAL */
 
     logic [1:0] red, green, blue;
     reg [1:0] current_colour_mode; // latched colour mode
