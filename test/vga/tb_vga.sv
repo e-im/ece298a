@@ -33,7 +33,9 @@ module tb_vga (
     parameter int V_FRONT_PORCH = 1;
     parameter int V_SYNC        = 2;
     parameter int V_BACK_PORCH  = 1;
+`endif
 
+    // vga module instantiation
     vga #(
         .H_ACTIVE(H_ACTIVE),
         .H_FRONT_PORCH(H_FRONT_PORCH),
