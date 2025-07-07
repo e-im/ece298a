@@ -50,6 +50,14 @@ tb-vga:
 	  VERILOG_SOURCES="$(PWD)/vga/tb_vga.sv $(SRC_DIR)/vga.sv" \
 	  PYTHONPATH="$(PWD)/vga"
 
+tb-png:
+	$(MAKE) sim \
+	  MODULE=png \
+	  TOPLEVEL=tb_png \
+	  VERILOG_SOURCES="$(PWD)/png/tb_png.sv $(VERILOG_SOURCES)" \
+	  PYTHONPATH="$(PWD)/png"
+
+
 # clean all generated files
 clean_all: clean
 	rm -f sim_test tb.vcd *.vcd results.xml
