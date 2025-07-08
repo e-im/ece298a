@@ -34,7 +34,7 @@ localparam int V_SYNC_START = V_ACTIVE + V_FRONT_PORCH;
 localparam int V_SYNC_END = V_ACTIVE + V_FRONT_PORCH + V_SYNC - 1;
 localparam int V_MAX = V_ACTIVE + V_FRONT_PORCH + V_BACK_PORCH + V_SYNC - 1;
 
-always_ff @(posedge clk) begin
+always_ff @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin
         hpos <= '0;
         vpos <= '0;

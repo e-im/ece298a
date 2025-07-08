@@ -27,13 +27,13 @@ project:
 # This section is for the datasheet/website. Use descriptive names (e.g., RX, TX, MOSI, SCL, SEG_A, etc.).
 pinout:
   # Inputs
-  ui[0]: "zoom (Zoom toggle - Active during VSYNC for zoom in/out)"
-  ui[1]: "pan_h (Horizontal pan toggle - Active during VSYNC)"
-  ui[2]: "pan_v (Vertical pan toggle - Active during VSYNC)"
-  ui[3]: "color_mode[0] (Color mode bit 0 - 4 color schemes)"
-  ui[4]: "color_mode[1] (Color mode bit 1 - 4 color schemes)"
-  ui[5]: "max_iter_sel (Iteration limit select - Higher detail vs speed)"
-  ui[6]: "reset_view (Reset to default view - Center + wide zoom)"
+  ui[0]: "zoom_in (Zoom in control - Active during VSYNC for smooth operation)"
+  ui[1]: "zoom_out (Zoom out control - Active during VSYNC for smooth operation)"
+  ui[2]: "pan_left (Pan left control - Immediate response)"
+  ui[3]: "pan_right (Pan right control - Immediate response)"
+  ui[4]: "pan_up (Pan up control - Immediate response)"
+  ui[5]: "pan_down (Pan down control - Immediate response)"
+  ui[6]: "reset_view (Reset to default view - Center fractal with good zoom)"
   ui[7]: "enable (Module enable - Master enable signal)"
 
   # Outputs
@@ -47,14 +47,14 @@ pinout:
   uo[7]: "vga_hsync (VGA Horizontal Sync - Active low)"
 
   # Bidirectional pins
-  uio[0]: "param_data[0] (Parameter data bus - Signed pan speed, zoom direction)"
-  uio[1]: "param_data[1]"
-  uio[2]: "param_data[2]"
-  uio[3]: "param_data[3]"
-  uio[4]: "param_data[4]"
-  uio[5]: "param_data[5]"
-  uio[6]: "param_data[6]"
-  uio[7]: "param_data[7]"
+  uio[0]: "colour_mode[0] (Color mode bit 0 - 4 color schemes)"
+  uio[1]: "colour_mode[1] (Color mode bit 1 - 4 color schemes)"
+  uio[2]: "reserved"
+  uio[3]: "reserved"
+  uio[4]: "reserved"
+  uio[5]: "reserved"
+  uio[6]: "reserved"
+  uio[7]: "reserved"
 
 # Do not change!
 yaml_version: 6

@@ -20,89 +20,83 @@ module param_controller #(
     output logic [ITER_WIDTH-1:0]         max_iter_limit
 );
 
-    // register input control signals to fix unclocked signal warnings
-    logic zoom_toggle, pan_h_toggle, pan_v_toggle, max_iter_sel, reset_view;
+    // extract control signals from UI inputs
+    wire zoom_in     = ui_in[0];
+    wire zoom_out    = ui_in[1]; 
+    wire pan_left    = ui_in[2];
+    wire pan_right   = ui_in[3];
+    wire pan_up      = ui_in[4];
+    wire pan_down    = ui_in[5];
+    wire reset_view  = ui_in[6];
+    wire max_iter_sel = ui_in[5]; // reuse bit 5 for iteration control
+
+    // default view (shows classic Mandelbrot features)
+    localparam signed [COORD_WIDTH-1:0] DEFAULT_CENTRE_X = -16'h4000; // -1.0 in Q2.14 (shows main body + bulb)
+    localparam signed [COORD_WIDTH-1:0] DEFAULT_CENTRE_Y = 16'h0000;  //  0.0 in Q2.14
+    localparam [ZOOM_WIDTH-1:0] DEFAULT_ZOOM = 8'd2; // start with some zoom for detail
     
-    always_ff @(posedge clk or negedge rst_n) begin
-        if (!rst_n) begin
-            zoom_toggle <= 1'b0;
-            pan_h_toggle <= 1'b0;
-            pan_v_toggle <= 1'b0;
-            max_iter_sel <= 1'b0;
-            reset_view <= 1'b0;
-        end else begin
-            zoom_toggle <= ui_in[0];
-            pan_h_toggle <= ui_in[1];
-            pan_v_toggle <= ui_in[2];
-            max_iter_sel <= ui_in[5];
-            reset_view <= ui_in[6];
-        end
-    end
-
-    // default for reset call
-    localparam signed [COORD_WIDTH-1:0] DEFAULT_CENTRE_X = 16'hF800; // -0.5
-    localparam signed [COORD_WIDTH-1:0] DEFAULT_CENTRE_Y = 16'h0000; //  0.0
-    localparam [ZOOM_WIDTH-1:0]          DEFAULT_ZOOM     = 8'd0; // widest
-
-    // guess, eval these
+    // iteration limits
     localparam [ITER_WIDTH-1:0] ITER_LIMIT_FAST = 31;
     localparam [ITER_WIDTH-1:0] ITER_LIMIT_DETAIL = 63;
 
-    reg signed [COORD_WIDTH-1:0] current_centre_x;
-    reg signed [COORD_WIDTH-1:0] current_centre_y;
-    reg [ZOOM_WIDTH-1:0]         current_zoom_level;
-    reg [ITER_WIDTH-1:0]         current_max_iter;
-
+    // current parameters
+    logic signed [COORD_WIDTH-1:0] curr_center_x, curr_center_y;
+    logic [ZOOM_WIDTH-1:0] curr_zoom;
+    logic [ITER_WIDTH-1:0] curr_max_iter;
+    
+    // calculate pan step size based on zoom level (natural feel)
+    logic [15:0] pan_step;
+    always_comb begin
+        pan_step = (curr_zoom < 8'd8) ? (16'h0200 >> curr_zoom[2:0]) : 16'h0002;
+    end
+    
+    // update parameters only at frame start to avoid visual glitches
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            // default view on reset
-            current_centre_x   <= DEFAULT_CENTRE_X;
-            current_centre_y   <= DEFAULT_CENTRE_Y;
-            current_zoom_level <= DEFAULT_ZOOM;
-            current_max_iter   <= ITER_LIMIT_DETAIL;
-        end else begin
-            if (v_begin) begin // only update during vsync
-                if (reset_view) begin
-                    current_centre_x   <= DEFAULT_CENTRE_X;
-                    current_centre_y   <= DEFAULT_CENTRE_Y;
-                    current_zoom_level <= DEFAULT_ZOOM;
+            curr_center_x <= DEFAULT_CENTRE_X;
+            curr_center_y <= DEFAULT_CENTRE_Y;
+            curr_zoom <= DEFAULT_ZOOM;
+            curr_max_iter <= ITER_LIMIT_DETAIL;
+        end else if (v_begin) begin
+            if (reset_view) begin
+                curr_center_x <= DEFAULT_CENTRE_X;
+                curr_center_y <= DEFAULT_CENTRE_Y;
+                curr_zoom <= DEFAULT_ZOOM;
+            end else begin
+                // zoom control with limits
+                if (zoom_in && curr_zoom < 8'd255) begin
+                    curr_zoom <= curr_zoom + 1;
+                end else if (zoom_out && curr_zoom > 8'd0) begin
+                    curr_zoom <= curr_zoom - 1;
+                end
+                
+                // pan control (speed scales with zoom level for natural feel)
+                if (pan_left) begin
+                    curr_center_x <= curr_center_x - pan_step;
+                end else if (pan_right) begin
+                    curr_center_x <= curr_center_x + pan_step;
+                end
+                
+                if (pan_up) begin
+                    curr_center_y <= curr_center_y - pan_step;
+                end else if (pan_down) begin
+                    curr_center_y <= curr_center_y + pan_step;
+                end
+                
+                // iteration limit control
+                if (max_iter_sel) begin
+                    curr_max_iter <= ITER_LIMIT_DETAIL;
                 end else begin
-                    if (pan_h_toggle) begin
-                        current_centre_x <= current_centre_x + ({{(COORD_WIDTH-8){uio_in[7]}}, uio_in} <<< 4);
-                    end
-
-                    if (pan_v_toggle) begin
-                        current_centre_y <= current_centre_y + ({{(COORD_WIDTH-8){uio_in[7]}}, uio_in} <<< 4);
-                    end
-
-                    if (zoom_toggle) begin
-                        // pos zoom in, neg zoom out
-                        logic signed [ZOOM_WIDTH:0] next_zoom;
-                        next_zoom = $signed(current_zoom_level) + $signed(uio_in);
-
-                        if (next_zoom < 0) begin // underflow
-                            current_zoom_level <= 0;
-                        end else if (next_zoom >= (1 << ZOOM_WIDTH)) begin // overflow
-                            current_zoom_level <= (1 << ZOOM_WIDTH) - 1;
-                        end else begin
-                            current_zoom_level <= next_zoom[ZOOM_WIDTH-1:0];
-                        end
-                    end
-
-                    if (max_iter_sel) begin
-                        current_max_iter <= ITER_LIMIT_DETAIL;
-                    end else begin
-                        current_max_iter <= ITER_LIMIT_FAST;
-                    end
+                    curr_max_iter <= ITER_LIMIT_FAST;
                 end
             end
         end
     end
-
-    assign centre_x       = current_centre_x;
-    assign centre_y       = current_centre_y;
-    assign zoom_level     = current_zoom_level;
-    assign max_iter_limit = current_max_iter;
+    
+    assign centre_x = curr_center_x;
+    assign centre_y = curr_center_y;
+    assign zoom_level = curr_zoom;
+    assign max_iter_limit = curr_max_iter;
 
 endmodule
 
