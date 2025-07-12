@@ -12,7 +12,12 @@ module vga #(
     parameter int V_ACTIVE = 480,
     parameter int V_FRONT_PORCH = 10, //bottom
     parameter int V_SYNC = 2, //lines
-    parameter int V_BACK_PORCH = 33 //top
+    parameter int V_BACK_PORCH = 33, //top
+
+    parameter int H_TOTAL = H_ACTIVE + H_FRONT_PORCH + H_SYNC + H_BACK_PORCH,
+    parameter int V_TOTAL = V_ACTIVE + V_FRONT_PORCH + V_SYNC + V_BACK_PORCH,
+    parameter int H_BITS  = $clog2(H_TOTAL),
+    parameter int V_BITS  = $clog2(V_TOTAL)
 )(
     input logic clk,
     input logic rst_n,
@@ -22,8 +27,8 @@ module vga #(
     output logic hsync,
     output logic vsync,
     output logic v_begin, // start of new frame
-    output logic [$clog2(H_ACTIVE + H_BACK_PORCH + H_FRONT_PORCH + H_SYNC) - 1 : 0] hpos,
-    output logic [$clog2(V_ACTIVE + V_FRONT_PORCH + V_BACK_PORCH + V_SYNC) - 1 : 0] vpos
+    output logic [H_BITS - 1 : 0] hpos,
+    output logic [V_BITS - 1 : 0] vpos
 
 );
 
@@ -39,10 +44,10 @@ always_ff @(posedge clk or negedge rst_n) begin
         hpos <= '0;
         vpos <= '0;
     end else if (clk_en) begin
-        if (hpos == 10'(H_MAX)) begin
+        if (hpos == H_BITS'(H_MAX)) begin
             hpos <= '0;
             //vert only on horz wrap
-            if (vpos == 10'(V_MAX))
+            if (vpos == V_BITS'(V_MAX))
                 vpos <= '0;
             else
               vpos <= vpos + 1'b1;
@@ -53,9 +58,9 @@ always_ff @(posedge clk or negedge rst_n) begin
 end
 
 always_comb begin
-    hsync = !((hpos >= 10'(H_SYNC_START)) && (hpos <= 10'(H_SYNC_END)));
-    vsync = !((vpos >= 10'(V_SYNC_START)) && (vpos <= 10'(V_SYNC_END)));
-    active = (hpos < 10'(H_ACTIVE)) && (vpos < 10'(V_ACTIVE));
+    hsync = !((hpos >= H_BITS'(H_SYNC_START)) && (hpos <= H_BITS'(H_SYNC_END)));
+    vsync = !((vpos >= H_BITS'(V_SYNC_START)) && (vpos <= H_BITS'(V_SYNC_END)));
+    active = (hpos < H_BITS'(H_ACTIVE)) && (vpos < H_BITS'(V_ACTIVE));
 
     v_begin = (hpos == 0) && (vpos == 0) && clk_en;
 end
