@@ -89,7 +89,7 @@ class VgaChecker:
         expected_active = (self.hpos < self.params["H_ACTIVE"]) and (self.vpos < self.params["V_ACTIVE"])
         expected_hsync = not (self.H_SYNC_START <= self.hpos <= self.H_SYNC_END)
         expected_vsync = not (self.V_SYNC_START <= self.vpos <= self.V_SYNC_END)
-        expected_v_begin = (self.hpos == self.H_MAX) and (self.vpos == self.V_MAX)
+        expected_v_begin = (self.hpos == 0) and (self.vpos == 0)
 
         assert self.dut.hpos.value == self.hpos, f"hpos mismatch: DUT={self.dut.hpos.value}, Expected={self.hpos}"
         assert self.dut.vpos.value == self.vpos, f"vpos mismatch: DUT={self.dut.vpos.value}, Expected={self.vpos}"

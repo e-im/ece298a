@@ -57,7 +57,7 @@ always_comb begin
     vsync = !((vpos >= 10'(V_SYNC_START)) && (vpos <= 10'(V_SYNC_END)));
     active = (hpos < 10'(H_ACTIVE)) && (vpos < 10'(V_ACTIVE));
 
-    v_begin = clk_en && (hpos == 10'(H_MAX)) && (vpos == 10'(V_MAX));
+    v_begin = (hpos == 0) && (vpos == 0) && clk_en;
 end
 
 endmodule
