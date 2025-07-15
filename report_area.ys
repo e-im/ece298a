@@ -1,0 +1,25 @@
+# 1. Read all of your Verilog/SystemVerilog source files
+read_verilog -sv src/mandelbrot_engine.sv
+read_verilog -sv src/mandelbrot_colour_mapper.sv
+read_verilog -sv src/vga.sv
+read_verilog -sv src/param_controller.sv
+read_verilog -sv src/tt_um_fractal.sv
+
+# 2. Set the top module and establish the hierarchy
+hierarchy -check -top tt_um_fractal
+
+# 3. Perform a complete synthesis process.
+# This converts RTL (e.g., always blocks) to generic gates,
+# maps memories, and runs optimizations, all while keeping the hierarchy.
+proc; opt; fsm; opt; memory; opt
+
+# 4. Map generic gates to simpler ones that the library mapper can use.
+techmap; opt
+
+# 5. Map the simple gates to the actual sky130 standard cells.
+# THIS IS THE KEY STEP that gives the cells a known area.
+abc -liberty /home/emccarth/verilog_sta/pdk_files/sky130_fd_sc_hd__tt_025C_1v80.lib
+
+# 6. Now, generate the hierarchical statistics.
+# Since the design is mapped, Yosys can report the area.
+stat -top tt_um_fractal -liberty /home/emccarth/verilog_sta/pdk_files/sky130_fd_sc_hd__tt_025C_1v80.lib
