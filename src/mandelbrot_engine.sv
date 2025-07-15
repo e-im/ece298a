@@ -36,28 +36,28 @@ module mandelbrot_engine #(
 );
 
     // coordinate mapping with zoom scaling
-    logic signed [15:0] scale_factor;
-    always_comb begin
-        // Carefully tuned scale factors for smooth zooming
-        case (zoom_level[3:0]) // Use bottom 4 bits for compatibility
-            4'd0:  scale_factor = 16'h2000; // 0.5 (wide view)
-            4'd1:  scale_factor = 16'h1000; // 0.25
-            4'd2:  scale_factor = 16'h0800; // 0.125 (good starting view)
-            4'd3:  scale_factor = 16'h0400; // 0.0625
-            4'd4:  scale_factor = 16'h0200; // 0.03125
-            4'd5:  scale_factor = 16'h0100; // 0.015625
-            4'd6:  scale_factor = 16'h0080; // 0.0078125
-            4'd7:  scale_factor = 16'h0040; // 0.00390625
-            4'd8:  scale_factor = 16'h0020; // 0.001953125
-            4'd9:  scale_factor = 16'h0010; // 0.0009765625
-            4'd10: scale_factor = 16'h0008; // 0.00048828125
-            4'd11: scale_factor = 16'h0004; // 0.000244140625
-            4'd12: scale_factor = 16'h0002; // 0.000122070313
-            4'd13: scale_factor = 16'h0001; // 0.000061035156
-            4'd14: scale_factor = 16'h0001; // 0.000030517578
-            4'd15: scale_factor = 16'h0001; // 0.000015258789
-        endcase
-    end
+    logic signed [15:0] scale_factor = 16'h2000;
+    // always_comb begin
+    //     // Carefully tuned scale factors for smooth zooming
+    //     case (zoom_level[3:0]) // Use bottom 4 bits for compatibility
+    //         4'd0:  scale_factor = 16'h2000; // 0.5 (wide view)
+    //         4'd1:  scale_factor = 16'h1000; // 0.25
+    //         4'd2:  scale_factor = 16'h0800; // 0.125 (good starting view)
+    //         4'd3:  scale_factor = 16'h0400; // 0.0625
+    //         4'd4:  scale_factor = 16'h0200; // 0.03125
+    //         4'd5:  scale_factor = 16'h0100; // 0.015625
+    //         4'd6:  scale_factor = 16'h0080; // 0.0078125
+    //         4'd7:  scale_factor = 16'h0040; // 0.00390625
+    //         4'd8:  scale_factor = 16'h0020; // 0.001953125
+    //         4'd9:  scale_factor = 16'h0010; // 0.0009765625
+    //         4'd10: scale_factor = 16'h0008; // 0.00048828125
+    //         4'd11: scale_factor = 16'h0004; // 0.000244140625
+    //         4'd12: scale_factor = 16'h0002; // 0.000122070313
+    //         4'd13: scale_factor = 16'h0001; // 0.000061035156
+    //         4'd14: scale_factor = 16'h0001; // 0.000030517578
+    //         4'd15: scale_factor = 16'h0001; // 0.000015258789
+    //     endcase
+    // end
 
     // state machine for computation pipeline
     typedef enum logic [2:0] {

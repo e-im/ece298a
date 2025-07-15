@@ -90,7 +90,7 @@ module tb_vga ();
         .active(active),
         .hsync(hsync),
         .vsync(vsync),
-        .v_begin(v_begin),
+        .frame_start(v_begin),
         .hpos(hpos),
         .vpos(vpos)
     );

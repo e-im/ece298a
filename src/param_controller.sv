@@ -33,7 +33,7 @@ module param_controller #(
     // default view (shows classic Mandelbrot features)
     localparam signed [COORD_WIDTH-1:0] DEFAULT_CENTRE_X = -16'h4000; // -1.0 in Q2.14 (shows main body + bulb)
     localparam signed [COORD_WIDTH-1:0] DEFAULT_CENTRE_Y = 16'h0000;  //  0.0 in Q2.14
-    localparam [ZOOM_WIDTH-1:0] DEFAULT_ZOOM = 8'd2; // start with some zoom for detail
+    localparam [ZOOM_WIDTH-1:0] DEFAULT_ZOOM = '0; // start with some zoom for detail
     
     // iteration limits
     localparam [ITER_WIDTH-1:0] ITER_LIMIT_FAST = 31;
