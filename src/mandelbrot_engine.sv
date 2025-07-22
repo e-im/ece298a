@@ -6,11 +6,14 @@
 // mandelbrot computation engine with pixel coordinate interface
 // implements the escape time algorithm: z(n+1) = z(n)^2 + c
 // https://en.wikipedia.org/wiki/Plotting_algorithms_for_the_Mandelbrot_set
+
+
+// Space-optimized mandelbrot computation engine
 module mandelbrot_engine #(
-    parameter COORD_WIDTH = 16,  // fixed-point coordinate width
-    parameter FRAC_BITS = 12,    // fractional bits (Q4.12 format)
-    parameter SCREEN_CENTER_X = 320,  // screen center X (for VGA: 320)
-    parameter SCREEN_CENTER_Y = 240   // screen center Y (for VGA: 240)
+    parameter COORD_WIDTH = 12,      // 12 bits for coordinates
+    parameter FRAC_BITS = 9,         // 9 bits for fractional part
+    parameter SCREEN_CENTER_X = 320,
+    parameter SCREEN_CENTER_Y = 240
 ) (
     input  logic clk,
     input  logic rst_n,
@@ -20,148 +23,121 @@ module mandelbrot_engine #(
     input  logic [9:0] pixel_y,   // 0-479
     input  logic pixel_valid,     // start computation for this pixel
     
-    // parameter inputs (from parameter bus)
-    input  logic signed [15:0] center_x,    // complex plane center X
-    input  logic signed [15:0] center_y,    // complex plane center Y
-    input  logic [7:0] zoom_level,          // zoom factor (0 = widest view)
-    input  logic [5:0] max_iter_limit,      // for iter sel
+    // parameter inputs
+    input  logic signed [15:0] center_x,    // 16 bits for center coordinates
+    input  logic signed [15:0] center_y,
+    input  logic [7:0] zoom_level,
+    input  logic [5:0] max_iter_limit,
     
     // control
     input  logic enable,
     
     // outputs
-    output logic [5:0] iteration_count,    // 0-63 iterations
-    output logic result_valid,             // result ready
-    output logic busy                      // engine computing
+    output logic [5:0] iteration_count,
+    output logic result_valid,
+    output logic busy
 );
 
-    // coordinate mapping with zoom scaling
-    logic signed [15:0] scale_factor;
-    always_comb begin
-        // Carefully tuned scale factors for smooth zooming
-        case (zoom_level[3:0]) // Use bottom 4 bits for compatibility
-            4'd0:  scale_factor = 16'h2000; // 0.5 (wide view)
-            4'd1:  scale_factor = 16'h1000; // 0.25
-            4'd2:  scale_factor = 16'h0800; // 0.125 (good starting view)
-            4'd3:  scale_factor = 16'h0400; // 0.0625
-            4'd4:  scale_factor = 16'h0200; // 0.03125
-            4'd5:  scale_factor = 16'h0100; // 0.015625
-            4'd6:  scale_factor = 16'h0080; // 0.0078125
-            4'd7:  scale_factor = 16'h0040; // 0.00390625
-            4'd8:  scale_factor = 16'h0020; // 0.001953125
-            4'd9:  scale_factor = 16'h0010; // 0.0009765625
-            4'd10: scale_factor = 16'h0008; // 0.00048828125
-            4'd11: scale_factor = 16'h0004; // 0.000244140625
-            4'd12: scale_factor = 16'h0002; // 0.000122070313
-            4'd13: scale_factor = 16'h0001; // 0.000061035156
-            4'd14: scale_factor = 16'h0001; // 0.000030517578
-            4'd15: scale_factor = 16'h0001; // 0.000015258789
-        endcase
-    end
-
-    // state machine for computation pipeline
-    typedef enum logic [2:0] {
-        IDLE = 3'b000, 
-        SETUP = 3'b001, 
-        ITERATE = 3'b010, 
-        ESCAPE_CHECK = 3'b011, 
-        DONE_STATE = 3'b100
+    // simplified 3-state machine
+    typedef enum logic [1:0] {
+        IDLE = 2'b00, 
+        COMPUTE = 2'b01, 
+        DONE = 2'b10
     } state_t;
     state_t state;
     
-    // mandelbrot variables
-    logic signed [15:0] c_real, c_imag;
-    logic signed [15:0] z_real, z_imag;
+    // reduced-width mandelbrot variables
+    logic signed [COORD_WIDTH-1:0] c_real, c_imag;
+    logic signed [COORD_WIDTH-1:0] z_real, z_imag;
     logic [5:0] iter_count;
     
-    // map pixel coordinates to complex plane
+    // simplified scale factor using shifts (much smaller than lookup table)
+    logic [3:0] zoom_shift;
     always_comb begin
-        logic signed [31:0] temp_real, temp_imag;
-        // center at screen center (320, 240) and scale
-        temp_real = ($signed({1'b0, pixel_x}) - 16'd320) * scale_factor;
-        temp_imag = ($signed({1'b0, pixel_y}) - 16'd240) * scale_factor;
-        c_real = center_x + temp_real[29:14]; // extract Q2.14 result
-        c_imag = center_y + temp_imag[29:14];
+        zoom_shift = (zoom_level > 15) ? 4'd15 : zoom_level[3:0];
     end
     
-    // mandelbrot iteration with pipeline stages
+    // optimized coordinate mapping - use shifts instead of multiplications
+    logic signed [COORD_WIDTH-1:0] base_scale;
+    assign base_scale = 12'h100; // base scale factor (1.0 in Q3.9)
+    
+    always_comb begin
+        logic signed [20:0] temp_real, temp_imag;
+        logic signed [COORD_WIDTH-1:0] scale_factor;
+        
+        // simple scale factor using right shift
+        scale_factor = base_scale >> zoom_shift;
+        
+        // simplified coordinate calculation
+        temp_real = ($signed({1'b0, pixel_x}) - 16'd320) * scale_factor;
+        temp_imag = ($signed({1'b0, pixel_y}) - 16'd240) * scale_factor;
+        
+        // truncate to fit and add center offset (scaled down from 16-bit)
+        c_real = center_x[15:4] + temp_real[15:4]; // Take upper bits
+        c_imag = center_y[15:4] + temp_imag[15:4];
+    end
+    
+    // single-cycle iteration with combined escape check
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             state <= IDLE;
-            z_real <= 16'h0000;
-            z_imag <= 16'h0000;
-            iter_count <= 6'b0;
+            z_real <= '0;
+            z_imag <= '0;
+            iter_count <= '0;
         end else if (enable) begin
             case (state)
                 IDLE: begin
                     if (pixel_valid) begin
-                        z_real <= 16'h0000; // start with z = 0
-                        z_imag <= 16'h0000;
-                        iter_count <= 6'b0;
-                        state <= SETUP;
+                        z_real <= '0;
+                        z_imag <= '0;
+                        iter_count <= '0;
+                        state <= COMPUTE;
                     end
                 end
                 
-                SETUP: begin
-                    // one cycle to setup, then start iterating
-                    state <= ITERATE;
-                end
-                
-                ITERATE: begin
-                    // mandelbrot iteration: z = z² + c
-                    // split computation across multiple cycles for timing
-                    logic signed [31:0] z_real_sq, z_imag_sq, z_cross;
-                    logic signed [15:0] z_real_new, z_imag_new;
+                COMPUTE: begin
+                    // combined iteration and escape check in single cycle
+                    logic signed [23:0] z_real_sq, z_imag_sq, z_cross;
+                    logic signed [COORD_WIDTH-1:0] z_real_new, z_imag_new;
+                    logic [23:0] magnitude_sq;
                     
-                    // calculate z² components
+                    // mandelbrot iteration: z = z^2 + c
                     z_real_sq = z_real * z_real;
                     z_imag_sq = z_imag * z_imag;
                     z_cross = z_real * z_imag;
                     
-                    // new z value: z = z² + c
-                    z_real_new = (z_real_sq[29:14] - z_imag_sq[29:14]) + c_real;
-                    z_imag_new = (z_cross[28:13]) + c_imag; // 2 * z_real * z_imag (shift left by 1)
+                    // new z value (using appropriate bit slicing for Q3.9)
+                    z_real_new = (z_real_sq[20:9] - z_imag_sq[20:9]) + c_real;
+                    z_imag_new = (z_cross[19:8]) + c_imag; // 2 * z_real * z_imag
                     
-                    z_real <= z_real_new;
-                    z_imag <= z_imag_new;
-                    iter_count <= iter_count + 1;
-                    state <= ESCAPE_CHECK;
-                end
-                
-                ESCAPE_CHECK: begin
-                    // check escape condition: |z|² > 4
-                    logic signed [31:0] z_real_sq, z_imag_sq;
-                    logic [31:0] magnitude_sq;
+                    // escape condition: |z|^2 > 4 (4.0 in Q3.9 is 0x800)
+                    magnitude_sq = z_real_sq[20:9] + z_imag_sq[20:9];
                     
-                    z_real_sq = z_real * z_real;
-                    z_imag_sq = z_imag * z_imag;
-                    magnitude_sq = z_real_sq[29:14] + z_imag_sq[29:14]; // |z|² in Q2.14
-                    
-                    if (magnitude_sq > 32'h10000 || iter_count >= max_iter_limit) begin 
-                        // escaped (|z|² > 4) or max iterations reached
-                        state <= DONE_STATE;
+                    if (magnitude_sq > 24'h800 || iter_count >= max_iter_limit) begin 
+                        // Escaped or max iterations
+                        state <= DONE;
                     end else begin
-                        // continue iterating
-                        state <= ITERATE;
+                        // Continue iterating
+                        z_real <= z_real_new;
+                        z_imag <= z_imag_new;
+                        iter_count <= iter_count + 1;
+                        // Stay in COMPUTE state
                     end
                 end
                 
-                DONE_STATE: begin
+                DONE: begin
                     if (!pixel_valid) begin
                         state <= IDLE;
                     end
                 end
                 
-                default: begin
-                    state <= IDLE;
-                end
+                default: state <= IDLE;
             endcase
         end
     end
     
     assign iteration_count = iter_count;
-    assign result_valid = (state == DONE_STATE);
+    assign result_valid = (state == DONE);
     assign busy = (state != IDLE);
 
 endmodule
-
