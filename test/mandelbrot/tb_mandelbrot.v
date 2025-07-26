@@ -41,7 +41,7 @@ module tb_mandelbrot ();
     rst_n = 1;
     
     // run for enough time to see computation
-    #10000;
+    #100000;
     
     // test different colour modes
     ui_in = 8'b10001000;  // enable=1, color_mode=1

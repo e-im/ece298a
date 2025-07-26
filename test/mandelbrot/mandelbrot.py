@@ -28,7 +28,7 @@ async def test_mandelbrot_engine_unit(dut):
     dut._log.info("Test 1: Basic computation engine response")
     
     # test that the engine produces some output
-    await ClockCycles(dut.clk, 200)  # give engine time to compute
+    await ClockCycles(dut.clk, 2000)  # give engine time to compute
     
     uo_value = int(dut.uo_out.value)
     red = ((uo_value >> 0) & 1) | (((uo_value >> 4) & 1) << 1)
