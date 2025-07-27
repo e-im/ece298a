@@ -63,6 +63,10 @@ tb-png:
 
 tb-engine:
 	$(MAKE) clean
+	@if [ "$(GATES)" = "yes" ]; then \
+	  rm -f gate_level_netlist.v; \
+	  yosys -s synth/engine.ys; \
+	fi
 	$(MAKE) sim \
 	  MODULE=engine \
 	  TOPLEVEL=tb_engine \

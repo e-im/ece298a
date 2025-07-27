@@ -1,0 +1,14 @@
+# RUN FROM /test directory only.
+
+read_liberty -lib synth/sky130_fd_sc_hd__tt_025C_1v80.lib
+read_verilog -sv ../src/mandelbrot_engine.sv
+
+synth -top mandelbrot_engine
+
+dfflibmap -liberty synth/sky130_fd_sc_hd__tt_025C_1v80.lib
+
+abc -liberty synth/sky130_fd_sc_hd__tt_025C_1v80.lib
+
+clean -purge
+
+write_verilog gate_level_netlist.v
