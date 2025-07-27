@@ -22,8 +22,12 @@ async def test_mandelbrot_engine_unit(dut):
     dut.uio_in.value = 0x00
     dut.rst_n.value = 0
 
-    dut.user_project.VPWR.value = 1
-    dut.user_project.VGND.value = 0
+    try:
+        if hasattr(dut.user_project, 'VPWR') and hasattr(dut.user_project, 'VGND'):
+            dut.user_project.VPWR.value = 1
+            dut.user_project.VGND.value = 0
+    except AttributeError:
+        pass
 
     await ClockCycles(dut.clk, 5)
     dut.rst_n.value = 1
