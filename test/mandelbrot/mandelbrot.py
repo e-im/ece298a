@@ -21,6 +21,10 @@ async def test_mandelbrot_engine_unit(dut):
     dut.ui_in.value = 0b10000000  # enable=1, default color mode
     dut.uio_in.value = 0x00
     dut.rst_n.value = 0
+
+    dut.user_project.VPWR.value = 1
+    dut.user_project.VGND.value = 0
+
     await ClockCycles(dut.clk, 5)
     dut.rst_n.value = 1
     await ClockCycles(dut.clk, 10)
