@@ -5,7 +5,19 @@ from cocotb.triggers import ClockCycles, RisingEdge, ReadOnly
 import random
 import functools
 
+def to_signed(n, bit_width): # int -> 2s complement
+    mask = (1 << bit_width) - 1
+    if n < 0:
+        n = (1 << bit_width) + n
+    return n & mask
+
+def from_signed(n, bit_width): # 2s comp -> int
+    if n & (1 << (bit_width - 1)):
+        return n - (1 << bit_width)
+    return n
+
 test_cases = [
+    # basic functionality tests
     { # point in set: hits max_iter_limit
         "name": "origin",
         "pixel_x": 320,
@@ -37,7 +49,7 @@ test_cases = [
         "name": "interesting point",
         "pixel_x": 400,
         "pixel_y": 300,
-        "center_x": 60536, #-5000 in 2s complement
+        "center_x": to_signed(-5000, 16),
         "center_y": 2000,
         "zoom_level": 4,
         "max_iter_limit": 50
@@ -51,18 +63,90 @@ test_cases = [
         "zoom_level": 15,
         "max_iter_limit": 63
     },
+    # boundary edge cases:
+    {
+        "name": "boundary_pixel_top_left",
+        "pixel_x": 0,
+        "pixel_y": 0,
+        "center_x": 0,
+        "center_y": 0,
+        "zoom_level": 0,
+        "max_iter_limit": 63
+    },
+    {
+        "name": "boundary_pixel_bottom_right",
+        "pixel_x": 639,
+        "pixel_y": 479,
+        "center_x": 0,
+        "center_y": 0,
+        "zoom_level": 0,
+        "max_iter_limit": 63
+    },
+    {
+        "name": "boundary_max_iter_zero",
+        "pixel_x": 320,
+        "pixel_y": 240,
+        "center_x": 0,
+        "center_y": 0,
+        "zoom_level": 0,
+        "max_iter_limit": 0
+    },
+    {
+        "name": "boundary_max_iter_one",
+        "pixel_x": 480, #any point that iterates more than once normally
+        "pixel_y": 240,
+        "center_x": 0,
+        "center_y": 0,
+        "zoom_level": 2,
+        "max_iter_limit": 1
+    },
+    {
+        "name": "boundary_zoom_clamping",
+        "pixel_x": 320,
+        "pixel_y": 240,
+        "center_x": 0,
+        "center_y": 0,
+        "zoom_level": 16,
+        "max_iter_limit": 63
+    },
+    {
+        "name": "boundary_center_x_max_neg",
+        "pixel_x": 320,
+        "pixel_y": 240,
+        "center_x": to_signed(-32768, 16), # Min 16-bit signed value
+        "center_y": 0,
+        "zoom_level": 4,
+        "max_iter_limit": 63
+    },
+    # arith/precision
+    {
+        "name": "arithmetic_boundary_c_is_minus_2",
+        "pixel_x": 64, # c_real ~= -2.0 at zoom=2
+        "pixel_y": 240,
+        "center_x": 0,
+        "center_y": 0,
+        "zoom_level": 2,
+        "max_iter_limit": 63
+    },
+    {
+        "name": "arithmetic_center_coord_truncation",
+        "pixel_x": 320,
+        "pixel_y": 240,
+        "center_x": 15, # 16'h000F, will be truncated to 0 by center_x[15:4]
+        "center_y": 0,
+        "zoom_level": 0,
+        "max_iter_limit": 63
+    },
+    {
+        "name": "arithmetic_seahorse_valley",
+        "pixel_x": 320,
+        "pixel_y": 240,
+        "center_x": to_signed(-30720, 16), # Center near c = -0.75
+        "center_y": to_signed(4096, 16),   # Center near c = 0.1
+        "zoom_level": 8,
+        "max_iter_limit": 63
+    }
 ]
-
-def to_signed(n, bit_width): # int -> 2s complement
-    mask = (1 << bit_width) - 1
-    if n < 0:
-        n = (1 << bit_width) + n
-    return n & mask
-
-def from_signed(n, bit_width): # 2s comp -> int
-    if n & (1 << (bit_width - 1)):
-        return n - (1 << bit_width)
-    return n
 
 def engine_model(params):
     COORD_WIDTH = 12
