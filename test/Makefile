@@ -38,6 +38,7 @@ COMPILE_ARGS 		+= -I$(SRC_DIR)
 .PHONY: tb-mandelbrot
 
 tb-mandelbrot:
+	$(MAKE) clean
 	$(MAKE) sim \
 	  MODULE=mandelbrot \
 	  TOPLEVEL=tb_mandelbrot \
@@ -45,6 +46,7 @@ tb-mandelbrot:
 	  PYTHONPATH="$(PWD)/mandelbrot"
 
 tb-vga:
+	$(MAKE) clean
 	$(MAKE) sim \
 	  MODULE=vga \
 	  TOPLEVEL=tb_vga \
@@ -52,11 +54,20 @@ tb-vga:
 	  PYTHONPATH="$(PWD)/vga"
 
 tb-png:
+	$(MAKE) clean
 	$(MAKE) sim \
 	  MODULE=png \
 	  TOPLEVEL=tb_png \
 	  VERILOG_SOURCES="$(PWD)/png/tb_png.sv $(VERILOG_SOURCES)" \
 	  PYTHONPATH="$(PWD)/png"
+
+tb-engine:
+	$(MAKE) clean
+	$(MAKE) sim \
+	  MODULE=engine \
+	  TOPLEVEL=tb_engine \
+	  VERILOG_SOURCES="$(PWD)/engine/tb_engine.sv $(VERILOG_SOURCES)" \
+	  PYTHONPATH="$(PWD)/engine"
 
 
 # clean all generated files
