@@ -31,24 +31,28 @@ module tb_engine ();
     forever #10 clk = ~clk;  // toggle every 10ns = 50MHz
   end
 
-  mandelbrot_engine #(
-    .COORD_WIDTH(COORD_WIDTH),
-    .FRAC_BITS(FRAC_BITS)
-  ) dut (
-    .clk(clk),
-    .rst_n(rst_n),
-    .pixel_x(pixel_x),
-    .pixel_y(pixel_y),
-    .pixel_valid(pixel_valid),
-    .center_x(center_x),
-    .center_y(center_y),
-    .zoom_level(zoom_level),
-    .max_iter_limit(max_iter_limit),
-    .enable(enable),
-    .iteration_count(iteration_count),
-    .result_valid(result_valid),
-    .busy(busy)
-  );
+  `ifdef GL_TEST
+    mandelbrot_engine dut (
+  `else
+    mandelbrot_engine #(
+      .COORD_WIDTH(COORD_WIDTH),
+      .FRAC_BITS(FRAC_BITS)
+    ) dut (
+  `endif
+      .clk(clk),
+      .rst_n(rst_n),
+      .pixel_x(pixel_x),
+      .pixel_y(pixel_y),
+      .pixel_valid(pixel_valid),
+      .center_x(center_x),
+      .center_y(center_y),
+      .zoom_level(zoom_level),
+      .max_iter_limit(max_iter_limit),
+      .enable(enable),
+      .iteration_count(iteration_count),
+      .result_valid(result_valid),
+      .busy(busy)
+    );
 
 
 endmodule
