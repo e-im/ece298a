@@ -121,7 +121,7 @@ test_cases = [
     # arith/precision
     {
         "name": "arithmetic_boundary_c_is_minus_2",
-        "pixel_x": 64, # c_real ~= -2.0 at zoom=2
+        "pixel_x": 192, # c_real ~= -2.0 at zoom=2
         "pixel_y": 240,
         "center_x": 0,
         "center_y": 0,
@@ -148,7 +148,7 @@ test_cases = [
     }
 ]
 
-def engine_model(params):
+def calculate_complex_c(params):
     COORD_WIDTH = 12
     FRAC_BITS = 9
     SCREEN_CENTER_X = 320
@@ -169,9 +169,22 @@ def engine_model(params):
     c_r += from_signed(to_signed(temp_real, 21), 21) >> 4
     c_i += from_signed(to_signed(temp_imag, 21), 21) >> 4
 
-    # truncate
-    c_real = from_signed(to_signed(c_r, COORD_WIDTH), COORD_WIDTH)
-    c_imag = from_signed(to_signed(c_i, COORD_WIDTH), COORD_WIDTH)
+    # truncate to fixed-point representation
+    c_real_fixed = from_signed(to_signed(c_r, COORD_WIDTH), COORD_WIDTH)
+    c_imag_fixed = from_signed(to_signed(c_i, COORD_WIDTH), COORD_WIDTH)
+    
+    # convert to floating-point representation
+    c_real_float = c_real_fixed / (1 << FRAC_BITS)
+    c_imag_float = c_imag_fixed / (1 << FRAC_BITS)
+    c_complex = complex(c_real_float, c_imag_float)
+    
+    return c_real_fixed, c_imag_fixed, c_complex
+
+def engine_model(params):
+    COORD_WIDTH = 12
+    FRAC_BITS = 9
+    
+    c_real, c_imag, _ = calculate_complex_c(params)
 
     # *** main loop
     z_real, z_imag = 0, 0
@@ -207,30 +220,7 @@ def engine_model(params):
     return params['max_iter_limit']
 
 def float_model(params): # floating point model for comparison
-    COORD_WIDTH = 12
-    FRAC_BITS = 9
-    SCREEN_CENTER_X = 320
-    SCREEN_CENTER_Y = 240
-    
-    zoom_shift = min(params['zoom_level'], 15)
-    base_scale = 1 << FRAC_BITS
-    scale_factor = base_scale >> zoom_shift
-    
-    temp_real = (params['pixel_x'] - SCREEN_CENTER_X) * scale_factor
-    temp_imag = (params['pixel_y'] - SCREEN_CENTER_Y) * scale_factor
-    
-    c_r = from_signed(params['center_x'], 16) >> 4
-    c_i = from_signed(params['center_y'], 16) >> 4
-
-    c_r += from_signed(to_signed(temp_real, 21), 21) >> 4
-    c_i += from_signed(to_signed(temp_imag, 21), 21) >> 4
-
-    c_real_fixed = from_signed(to_signed(c_r, COORD_WIDTH), COORD_WIDTH)
-    c_imag_fixed = from_signed(to_signed(c_i, COORD_WIDTH), COORD_WIDTH)
-
-    c_real_float = c_real_fixed / (1 << FRAC_BITS)
-    c_imag_float = c_imag_fixed / (1 << FRAC_BITS)
-    c = complex(c_real_float, c_imag_float)
+    _, _, c = calculate_complex_c(params)
 
     z = complex(0, 0)
     for i in range(params['max_iter_limit']):
@@ -284,13 +274,15 @@ async def run_single_test_case(dut, params):
     clock = Clock(dut.clk, 20, units="ns") #50mhz
     cocotb.start_soon(clock.start())
     await reset_dut(dut)
-    
+
+    _, _, c_complex = calculate_complex_c(params)
     expected_iterations = engine_model(params) # python result
     float_iterations = float_model(params)
     dut_iterations = await run_calculation(dut, params) # DUT result
 
+    dut._log.info(f"    c: {c_complex}")
     dut._log.info(f"float: {float_iterations}")
-    dut._log.info(f"   fp: {expected_iterations}")
+    dut._log.info(f"fixed: {expected_iterations}")
     dut._log.info(f"  DUT: {dut_iterations}")
 
     assert dut_iterations == expected_iterations, f"DUT={dut_iterations}, Expected={expected_iterations}"
