@@ -1,7 +1,5 @@
 `default_nettype none
 
-/* verilator lint_off UNUSEDSIGNAL */
-
 module param_controller #(
     parameter COORD_WIDTH = 16, // Q4.12
     parameter ZOOM_WIDTH  = 8,
@@ -31,9 +29,9 @@ module param_controller #(
     wire max_iter_sel = ui_in[5]; // reuse bit 5 for iteration control
 
     // default view (shows classic Mandelbrot features)
-    localparam signed [COORD_WIDTH-1:0] DEFAULT_CENTRE_X = -16'h4000; // -1.0 in Q2.14 (shows main body + bulb)
-    localparam signed [COORD_WIDTH-1:0] DEFAULT_CENTRE_Y = 16'h0000;  //  0.0 in Q2.14
-    localparam [ZOOM_WIDTH-1:0] DEFAULT_ZOOM = 8'd2; // start with some zoom for detail
+    localparam signed [COORD_WIDTH-1:0] DEFAULT_CENTRE_X = -16'h1000; // -0.5
+    localparam signed [COORD_WIDTH-1:0] DEFAULT_CENTRE_Y = 16'h0000;
+    localparam [ZOOM_WIDTH-1:0] DEFAULT_ZOOM = 8'd0;
     
     // iteration limits
     localparam [ITER_WIDTH-1:0] ITER_LIMIT_FAST = 31;
@@ -45,10 +43,9 @@ module param_controller #(
     logic [ITER_WIDTH-1:0] curr_max_iter;
     
     // calculate pan step size based on zoom level (natural feel)
-    logic [15:0] pan_step;
-    always_comb begin
-        pan_step = (curr_zoom < 8'd8) ? (16'h0200 >> curr_zoom[2:0]) : 16'h0002;
-    end
+    localparam signed [COORD_WIDTH-1:0] BASE_PAN_STEP = 16'd819; // 0.1
+    logic signed [COORD_WIDTH-1:0] pan_step;
+    assign pan_step = BASE_PAN_STEP >> curr_zoom[3:0];
     
     // update parameters only at frame start to avoid visual glitches
     always_ff @(posedge clk or negedge rst_n) begin
@@ -64,9 +61,9 @@ module param_controller #(
                 curr_zoom <= DEFAULT_ZOOM;
             end else begin
                 // zoom control with limits
-                if (zoom_in && curr_zoom < 8'd255) begin
+                if (zoom_in && curr_zoom < '1) begin
                     curr_zoom <= curr_zoom + 1;
-                end else if (zoom_out && curr_zoom > 8'd0) begin
+                end else if (zoom_out && curr_zoom > 0) begin
                     curr_zoom <= curr_zoom - 1;
                 end
                 
@@ -99,5 +96,3 @@ module param_controller #(
     assign max_iter_limit = curr_max_iter;
 
 endmodule
-
-/* verilator lint_on UNUSEDSIGNAL */

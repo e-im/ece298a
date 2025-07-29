@@ -40,7 +40,7 @@ module tb_png;
         .rst_n(rst_n)
     );
 
-    assign v_begin    = dut.v_begin;
+    assign v_begin    = dut.frame_start;
     assign pixel_x    = dut.pixel_x;
     assign pixel_y    = dut.pixel_y;
     assign vga_active = dut.vga_active;
