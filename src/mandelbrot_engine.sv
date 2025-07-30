@@ -10,8 +10,8 @@
 
 // Space-optimized mandelbrot computation engine
 module mandelbrot_engine #(
-    parameter COORD_WIDTH = 12,      // 12 bits for coordinates
-    parameter FRAC_BITS = 9,         // 9 bits for fractional part
+    parameter COORD_WIDTH = 11,      // 11 bits for coordinates (optimized for 1x2 tile)
+    parameter FRAC_BITS = 8,         // 8 bits for fractional part (optimized for 1x2 tile)
     parameter SCREEN_CENTER_X = 320,
     parameter SCREEN_CENTER_Y = 240
 ) (
@@ -57,24 +57,24 @@ module mandelbrot_engine #(
         zoom_shift = (zoom_level > 15) ? 4'd15 : zoom_level[3:0];
     end
     
-    // optimized coordinate mapping - use shifts instead of multiplications
+    // coordinate mapping - optimized for 1x2 tile (Q3.8 format)
     logic signed [COORD_WIDTH-1:0] base_scale;
-    assign base_scale = 12'h100; // base scale factor (1.0 in Q3.9)
+    assign base_scale = 11'h100; // base scale factor (1.0 in Q3.8)
     
     always_comb begin
-        logic signed [20:0] temp_real, temp_imag;
+        logic signed [21:0] temp_real, temp_imag;
         logic signed [COORD_WIDTH-1:0] scale_factor;
         
-        // simple scale factor using right shift
+        // scale factor using right shift
         scale_factor = base_scale >> zoom_shift;
         
-        // simplified coordinate calculation
+        // coordinate calculation for Q3.8 format
         temp_real = ($signed({1'b0, pixel_x}) - 16'd320) * scale_factor;
         temp_imag = ($signed({1'b0, pixel_y}) - 16'd240) * scale_factor;
         
-        // truncate to fit and add center offset (scaled down from 16-bit)
-        c_real = center_x[15:4] + temp_real[15:4]; // Take upper bits
-        c_imag = center_y[15:4] + temp_imag[15:4];
+        // truncation for Q3.8 format (one bit less precision)
+        c_real = center_x[15:5] + temp_real[16:5]; // Q3.8 bit slicing
+        c_imag = center_y[15:5] + temp_imag[16:5];
     end
     
     // single-cycle iteration with combined escape check
@@ -97,23 +97,23 @@ module mandelbrot_engine #(
                 
                 COMPUTE: begin
                     // combined iteration and escape check in single cycle
-                    logic signed [23:0] z_real_sq, z_imag_sq, z_cross;
+                    logic signed [21:0] z_real_sq, z_imag_sq, z_cross;
                     logic signed [COORD_WIDTH-1:0] z_real_new, z_imag_new;
-                    logic [23:0] magnitude_sq;
+                    logic [21:0] magnitude_sq;
                     
                     // mandelbrot iteration: z = z^2 + c
                     z_real_sq = z_real * z_real;
                     z_imag_sq = z_imag * z_imag;
                     z_cross = z_real * z_imag;
                     
-                    // new z value (using appropriate bit slicing for Q3.9)
-                    z_real_new = (z_real_sq[20:9] - z_imag_sq[20:9]) + c_real;
-                    z_imag_new = (z_cross[19:8]) + c_imag; // 2 * z_real * z_imag
+                    // new z value (Q3.8 bit slicing for area optimization)
+                    z_real_new = (z_real_sq[18:8] - z_imag_sq[18:8]) + c_real;
+                    z_imag_new = (z_cross[17:7]) + c_imag; // 2 * z_real * z_imag
                     
-                    // escape condition: |z|^2 > 4 (4.0 in Q3.9 is 0x800)
-                    magnitude_sq = z_real_sq[20:9] + z_imag_sq[20:9];
+                    // escape condition: |z|^2 > 4 (4.0 in Q3.8 is 0x400)
+                    magnitude_sq = z_real_sq[18:8] + z_imag_sq[18:8];
                     
-                    if (magnitude_sq > 24'h800 || iter_count >= max_iter_limit) begin 
+                    if (magnitude_sq > 22'h400 || iter_count >= max_iter_limit) begin 
                         // Escaped or max iterations
                         state <= DONE;
                     end else begin

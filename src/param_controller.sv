@@ -43,9 +43,9 @@ module param_controller #(
     logic [ITER_WIDTH-1:0] curr_max_iter;
     
     // calculate pan step size based on zoom level (natural feel)
-    localparam signed [COORD_WIDTH-1:0] BASE_PAN_STEP = 16'd819; // 0.1
+    localparam signed [COORD_WIDTH-1:0] BASE_PAN_STEP = 16'd512; // simplified base step
     logic signed [COORD_WIDTH-1:0] pan_step;
-    assign pan_step = BASE_PAN_STEP >> curr_zoom[3:0];
+    assign pan_step = BASE_PAN_STEP >> curr_zoom[2:0]; // reduced shift bits
     
     // update parameters only at frame start to avoid visual glitches
     always_ff @(posedge clk or negedge rst_n) begin
@@ -60,8 +60,8 @@ module param_controller #(
                 curr_center_y <= DEFAULT_CENTRE_Y;
                 curr_zoom <= DEFAULT_ZOOM;
             end else begin
-                // zoom control with limits
-                if (zoom_in && curr_zoom < '1) begin
+                // zoom control with limits (reduced max zoom for less precision)
+                if (zoom_in && curr_zoom < 8'd15) begin
                     curr_zoom <= curr_zoom + 1;
                 end else if (zoom_out && curr_zoom > 0) begin
                     curr_zoom <= curr_zoom - 1;

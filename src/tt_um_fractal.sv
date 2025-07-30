@@ -70,7 +70,6 @@ module tt_um_fractal (
     );
     
     // parameter controller for zoom/pan
-    logic [5:0] max_iter_limit; // declare but don't use
     param_controller params (
         .clk(clk),
         .rst_n(rst_n),
@@ -80,7 +79,7 @@ module tt_um_fractal (
         .centre_x(center_x),
         .centre_y(center_y),
         .zoom_level(zoom_level_8bit), // use 8-bit zoom level
-        .max_iter_limit(max_iter_limit) // connect but don't use
+        .max_iter_limit() // leave unconnected to save area
     );
     
     // start computation when new pixel is active
