@@ -1,5 +1,8 @@
 `default_nettype none
 
+/* verilator lint_off UNUSEDPARAM */
+/* verilator lint_off UNUSEDSIGNAL */
+
 // compact mandelbrot fractal engine optimized for 1x2 tinytapeout tile
 // uses reduced precision arithmetic and simplified state machine for minimal area
 module mandelbrot_engine #(

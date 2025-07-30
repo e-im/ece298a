@@ -1,3 +1,5 @@
+/* verilator lint_off UNUSEDSIGNAL */
+
 // compact color mapper for mandelbrot fractal visualization
 // optimized for minimal area usage in 1x2 tinytapeout tile
 module mandelbrot_colour_mapper (
