@@ -2,8 +2,10 @@
 
 /* verilator lint_off UNUSEDSIGNAL */
 
+// parameter controller for zoom/pan controls and iteration limits
+// optimized for minimal area usage in 1x2 tinytapeout tile
 module param_controller #(
-    parameter COORD_WIDTH = 16, // Q4.12
+    parameter COORD_WIDTH = 16, 
     parameter ZOOM_WIDTH  = 8,
     parameter ITER_WIDTH  = 6
 ) (
@@ -20,7 +22,7 @@ module param_controller #(
     output logic [ITER_WIDTH-1:0]         max_iter_limit
 );
 
-    // extract control signals from UI inputs
+    // decode user interface control signals
     wire zoom_in     = ui_in[0];
     wire zoom_out    = ui_in[1]; 
     wire pan_left    = ui_in[2];
@@ -28,29 +30,29 @@ module param_controller #(
     wire pan_up      = ui_in[4];
     wire pan_down    = ui_in[5];
     wire reset_view  = ui_in[6];
-    wire max_iter_sel = ui_in[5]; // reuse bit 5 for iteration control
+    wire max_iter_sel = ui_in[5]; // iteration count select (fast/detailed)
 
-    // default view (shows classic Mandelbrot features)
-    localparam signed [COORD_WIDTH-1:0] DEFAULT_CENTRE_X = -16'h4000; // -1.0 in Q2.14 (shows main body + bulb)
-    localparam signed [COORD_WIDTH-1:0] DEFAULT_CENTRE_Y = 16'h0000;  //  0.0 in Q2.14
-    localparam [ZOOM_WIDTH-1:0] DEFAULT_ZOOM = '0; // start with some zoom for detail
+    // default mandelbrot view showing main features
+    localparam signed [COORD_WIDTH-1:0] DEFAULT_CENTRE_X = -16'h4000; // -1.0 shows main bulb
+    localparam signed [COORD_WIDTH-1:0] DEFAULT_CENTRE_Y = 16'h0000;  // 0.0 center
+    localparam [ZOOM_WIDTH-1:0] DEFAULT_ZOOM = '0; // wide view initial zoom
     
-    // iteration limits
+    // iteration count limits for speed vs quality tradeoff
     localparam [ITER_WIDTH-1:0] ITER_LIMIT_FAST = 31;
     localparam [ITER_WIDTH-1:0] ITER_LIMIT_DETAIL = 63;
 
-    // current parameters
+    // current fractal view parameters
     logic signed [COORD_WIDTH-1:0] curr_center_x, curr_center_y;
     logic [ZOOM_WIDTH-1:0] curr_zoom;
     logic [ITER_WIDTH-1:0] curr_max_iter;
     
-    // calculate pan step size based on zoom level (natural feel)
-    logic [15:0] pan_step;
+    // pan step size calculation (smaller at higher zoom)
+    logic [11:0] pan_step;
     always_comb begin
-        pan_step = (curr_zoom < 8'd8) ? (16'h0200 >> curr_zoom[2:0]) : 16'h0002;
+        pan_step = 12'h080 >> curr_zoom[2:0];  // divide by 2^zoom for natural feel
     end
     
-    // update parameters only at frame start to avoid visual glitches
+    // update parameters at frame boundary for smooth animation
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             curr_center_x <= DEFAULT_CENTRE_X;
@@ -63,24 +65,24 @@ module param_controller #(
                 curr_center_y <= DEFAULT_CENTRE_Y;
                 curr_zoom <= DEFAULT_ZOOM;
             end else begin
-                // zoom control with limits
-                if (zoom_in && curr_zoom < 8'd255) begin
-                    curr_zoom <= curr_zoom + 1;
-                end else if (zoom_out && curr_zoom > 8'd0) begin
-                    curr_zoom <= curr_zoom - 1;
+                // zoom control using only 3 bits (8 levels) for area efficiency
+                if (zoom_in && curr_zoom[2:0] < 3'd7) begin
+                    curr_zoom[2:0] <= curr_zoom[2:0] + 1;
+                end else if (zoom_out && curr_zoom[2:0] > 3'd0) begin
+                    curr_zoom[2:0] <= curr_zoom[2:0] - 1;
                 end
                 
-                // pan control (speed scales with zoom level for natural feel)
+                // pan control with zoom-adjusted step size
                 if (pan_left) begin
-                    curr_center_x <= curr_center_x - pan_step;
+                    curr_center_x <= curr_center_x - {4'b0, pan_step};
                 end else if (pan_right) begin
-                    curr_center_x <= curr_center_x + pan_step;
+                    curr_center_x <= curr_center_x + {4'b0, pan_step};
                 end
                 
                 if (pan_up) begin
-                    curr_center_y <= curr_center_y - pan_step;
+                    curr_center_y <= curr_center_y - {4'b0, pan_step};
                 end else if (pan_down) begin
-                    curr_center_y <= curr_center_y + pan_step;
+                    curr_center_y <= curr_center_y + {4'b0, pan_step};
                 end
                 
                 // iteration limit control
