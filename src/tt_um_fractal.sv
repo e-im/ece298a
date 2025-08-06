@@ -48,7 +48,7 @@ module tt_um_fractal (
     logic frame_start;
     
     // mandelbrot computation signals
-    logic signed [15:0] center_x, center_y;
+    logic signed [10:0] center_x, center_y;
     logic [7:0] zoom_level_8bit;
     logic [5:0] iteration_count;
     logic computation_done;

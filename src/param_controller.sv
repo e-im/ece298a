@@ -1,8 +1,8 @@
 `default_nettype none
 
 module param_controller #(
-    parameter COORD_WIDTH = 16, // Q4.12
-    parameter ZOOM_WIDTH  = 8,
+    parameter COORD_WIDTH = 11, // Q3.8
+    parameter ZOOM_WIDTH  = 8
 ) (
     input  logic clk,
     input  logic rst_n,
@@ -13,7 +13,7 @@ module param_controller #(
 
     output logic signed [COORD_WIDTH-1:0] centre_x,
     output logic signed [COORD_WIDTH-1:0] centre_y,
-    output logic [ZOOM_WIDTH-1:0]         zoom_level,
+    output logic [ZOOM_WIDTH-1:0]         zoom_level
 );
 
     // extract control signals from UI inputs
@@ -26,22 +26,18 @@ module param_controller #(
     wire reset_view  = ui_in[6];
 
     // default view (shows classic Mandelbrot features)
-    localparam signed [COORD_WIDTH-1:0] DEFAULT_CENTRE_X = -16'h1000; // -0.5
-    localparam signed [COORD_WIDTH-1:0] DEFAULT_CENTRE_Y = 16'h0000;
+    localparam signed [COORD_WIDTH-1:0] DEFAULT_CENTRE_X = -11'd128; // -0.5 in Q3.8 (-128 / 2^8)
+    localparam signed [COORD_WIDTH-1:0] DEFAULT_CENTRE_Y = 11'd0;
     localparam [ZOOM_WIDTH-1:0] DEFAULT_ZOOM = 8'd0;
-    
-    // iteration limits
-    localparam [ITER_WIDTH-1:0] ITER_LIMIT_FAST = 31;
-    localparam [ITER_WIDTH-1:0] ITER_LIMIT_DETAIL = 63;
 
     // current parameters
     logic signed [COORD_WIDTH-1:0] curr_center_x, curr_center_y;
     logic [ZOOM_WIDTH-1:0] curr_zoom;
     
     // calculate pan step size based on zoom level (natural feel)
-    localparam signed [COORD_WIDTH-1:0] BASE_PAN_STEP = 16'd512; // simplified base step
+    localparam signed [COORD_WIDTH-1:0] BASE_PAN_STEP = 11'd32; // 0.125 in Q3.8 (32 / 2^8)
     logic signed [COORD_WIDTH-1:0] pan_step;
-    assign pan_step = BASE_PAN_STEP >> curr_zoom[2:0]; // reduced shift bits
+    assign pan_step = BASE_PAN_STEP >> curr_zoom[2:0];
     
     // update parameters only at frame start to avoid visual glitches
     always_ff @(posedge clk or negedge rst_n) begin

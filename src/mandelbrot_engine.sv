@@ -11,9 +11,7 @@
 // Space-optimized mandelbrot computation engine
 module mandelbrot_engine #(
     parameter COORD_WIDTH = 11,      // 11 bits for coordinates (optimized for 1x2 tile)
-    parameter FRAC_BITS = 8,         // 8 bits for fractional part (optimized for 1x2 tile)
-    parameter SCREEN_CENTER_X = 320,
-    parameter SCREEN_CENTER_Y = 240
+    parameter FRAC_BITS = 8         // 8 bits for fractional part (optimized for 1x2 tile)
 ) (
     input  logic clk,
     input  logic rst_n,
@@ -24,8 +22,8 @@ module mandelbrot_engine #(
     input  logic pixel_valid,     // start computation for this pixel
     
     // parameter inputs
-    input  logic signed [15:0] center_x,    // 16 bits for center coordinates
-    input  logic signed [15:0] center_y,
+    input  logic signed [COORD_WIDTH-1:0] center_x,
+    input  logic signed [COORD_WIDTH-1:0] center_y,
     input  logic [7:0] zoom_level,
     input  logic [5:0] max_iter_limit,
     
@@ -68,13 +66,12 @@ module mandelbrot_engine #(
         // scale factor using right shift
         scale_factor = base_scale >> zoom_shift;
         
-        // coordinate calculation for Q3.8 format
-        temp_real = ($signed({1'b0, pixel_x}) - 16'd320) * scale_factor;
-        temp_imag = ($signed({1'b0, pixel_y}) - 16'd240) * scale_factor;
+        // calculate pixel offset from screen center
+        temp_real = ($signed({1'b0, pixel_x}) - 320) * scale_factor;
+        temp_imag = ($signed({1'b0, pixel_y}) - 240) * scale_factor;
         
-        // truncation for Q3.8 format (one bit less precision)
-        c_real = center_x[15:5] + temp_real[16:5]; // Q3.8 bit slicing
-        c_imag = center_y[15:5] + temp_imag[16:5];
+        c_real = center_x + signed'(temp_real >> FRAC_BITS);
+        c_imag = center_y + signed'(temp_imag >> FRAC_BITS);
     end
     
     // single-cycle iteration with combined escape check
@@ -96,25 +93,27 @@ module mandelbrot_engine #(
                 end
                 
                 COMPUTE: begin
-                    // combined iteration and escape check in single cycle
-                    logic signed [21:0] z_real_sq, z_imag_sq, z_cross;
+                    logic signed [2*COORD_WIDTH-1:0] z_real_sq, z_imag_sq, z_cross;
                     logic signed [COORD_WIDTH-1:0] z_real_new, z_imag_new;
-                    logic [21:0] magnitude_sq;
+                    logic signed [2*COORD_WIDTH-1:0] magnitude_sq_full;
                     
                     // mandelbrot iteration: z = z^2 + c
                     z_real_sq = z_real * z_real;
                     z_imag_sq = z_imag * z_imag;
                     z_cross = z_real * z_imag;
                     
-                    // new z value (Q3.8 bit slicing for area optimization)
-                    z_real_new = (z_real_sq[18:8] - z_imag_sq[18:8]) + c_real;
-                    z_imag_new = (z_cross[17:7]) + c_imag; // 2 * z_real * z_imag
+                    // new z value, converting from Q6.16 back to Q3.8
+                    z_real_new = (z_real_sq >> FRAC_BITS) - (z_imag_sq >> FRAC_BITS) + c_real;
+                    z_imag_new = ((z_cross << 1) >> FRAC_BITS) + c_imag; // 2*z_r*z_i
                     
-                    // escape condition: |z|^2 > 4 (4.0 in Q3.8 is 0x400)
-                    magnitude_sq = z_real_sq[18:8] + z_imag_sq[18:8];
+                    // escape condition: |z|^2 > 4
+                    // (z_real^2 + z_imag^2) > 4.0
+                    // The sum is in Q6.16, so 4.0 is 4 << 16
+                    // (z_real^2 + z_imag^2) in Q3.8 > 4.0 in Q3.8
+                    magnitude_sq_full = (z_real_sq >> FRAC_BITS) + (z_imag_sq >> FRAC_BITS);
                     
-                    if (magnitude_sq > 22'h400 || iter_count >= max_iter_limit) begin 
-                        // Escaped or max iterations
+                    // 4.0 in Q3.8 is 4 * 2^8 = 1024 (0x400)
+                    if (magnitude_sq_full > 11'd1024 || iter_count >= max_iter_limit) begin
                         state <= DONE;
                     end else begin
                         // Continue iterating
