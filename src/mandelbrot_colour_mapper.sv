@@ -5,7 +5,7 @@ module mandelbrot_colour_mapper (
     input  logic rst_n,             
     input  logic [5:0] iteration_count,
     input  logic [1:0] colour_mode,      // 4 different colour schemes
-    input  logic in_set,                // iteration_count == MAX_ITER
+    input  logic in_set,
     
     output logic [1:0] red,
     output logic [1:0] green,

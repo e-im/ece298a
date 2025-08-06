@@ -19,6 +19,8 @@ module tt_um_fractal (
     input  wire       rst_n     // reset_n - low to reset
 );
 
+    localparam MAX_ITERATIONS = 6'd63;
+
     // control signals from UI pins
     wire zoom_in     = ui_in[0];
     wire zoom_out    = ui_in[1]; 
@@ -78,8 +80,7 @@ module tt_um_fractal (
         .uio_in(uio_in),
         .centre_x(center_x),
         .centre_y(center_y),
-        .zoom_level(zoom_level_8bit), // use 8-bit zoom level
-        .max_iter_limit() // leave unconnected to save area
+        .zoom_level(zoom_level_8bit)
     );
     
     // start computation when new pixel is active
@@ -94,8 +95,8 @@ module tt_um_fractal (
         .pixel_valid(start_computation),
         .center_x(center_x),
         .center_y(center_y),
-        .zoom_level(zoom_level_8bit), // use 8-bit zoom level
-        .max_iter_limit(6'b11111), // fixed to 31 iterations
+        .zoom_level(zoom_level_8bit),
+        .max_iter_limit(MAX_ITERATIONS),
         .enable(enable),
         .iteration_count(iteration_count),
         .result_valid(computation_done),
@@ -106,9 +107,9 @@ module tt_um_fractal (
     mandelbrot_colour_mapper colors (
         .clk(clk),
         .rst_n(rst_n),
-        .iteration_count(iteration_count), // already 6-bit
+        .iteration_count(iteration_count),
         .colour_mode(color_mode),
-        .in_set(iteration_count >= 6'd31), // in set if max iterations reached
+        .in_set(iteration_count >= MAX_ITERATIONS),
         .red(red),
         .green(green),
         .blue(blue)

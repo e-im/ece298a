@@ -54,14 +54,12 @@ The system operates as a pipelined process synchronized to a pixel clock to gene
 | Center X       | `centre_x`       | X-coordinate of the view center (Q4.12 format) |    O    |    16     | N/A         |
 | Center Y       | `centre_y`       | Y-coordinate of the view center (Q4.12 format) |    O    |    16     | N/A         |
 | Zoom Level     | `zoom_level`     | Current zoom magnification level               |    O    |     8     | N/A         |
-| Max Iterations | `max_iter_limit` | Maximum iterations for fractal calculation     |    O    |     6     | N/A         |
 
 #### Notes
 * This module translates switch/button presses into changes in the fractal's viewport.
 * Coordinates are handled as 16-bit fixed point integer in Q4.12.
 * Panning speed scales with zoom: The `pan_step` is reduced at higher zoom levels, allowing for finer control when exploring detailed areas.
 * Updates to the output parameters (`centre_x`, `centre_y`, etc.) are registered and only occur when `v_begin` is high, ensuring the entire frame is rendered with the same parameters.
-* The `max_iter_limit` can be toggled between a "fast" and a "detail" mode.
 
 ---
 

@@ -3,7 +3,6 @@
 module param_controller #(
     parameter COORD_WIDTH = 16, // Q4.12
     parameter ZOOM_WIDTH  = 8,
-    parameter ITER_WIDTH  = 6
 ) (
     input  logic clk,
     input  logic rst_n,
@@ -15,7 +14,6 @@ module param_controller #(
     output logic signed [COORD_WIDTH-1:0] centre_x,
     output logic signed [COORD_WIDTH-1:0] centre_y,
     output logic [ZOOM_WIDTH-1:0]         zoom_level,
-    output logic [ITER_WIDTH-1:0]         max_iter_limit
 );
 
     // extract control signals from UI inputs
@@ -26,7 +24,6 @@ module param_controller #(
     wire pan_up      = ui_in[4];
     wire pan_down    = ui_in[5];
     wire reset_view  = ui_in[6];
-    wire max_iter_sel = ui_in[5]; // reuse bit 5 for iteration control
 
     // default view (shows classic Mandelbrot features)
     localparam signed [COORD_WIDTH-1:0] DEFAULT_CENTRE_X = -16'h1000; // -0.5
@@ -40,7 +37,6 @@ module param_controller #(
     // current parameters
     logic signed [COORD_WIDTH-1:0] curr_center_x, curr_center_y;
     logic [ZOOM_WIDTH-1:0] curr_zoom;
-    logic [ITER_WIDTH-1:0] curr_max_iter;
     
     // calculate pan step size based on zoom level (natural feel)
     localparam signed [COORD_WIDTH-1:0] BASE_PAN_STEP = 16'd512; // simplified base step
@@ -53,7 +49,6 @@ module param_controller #(
             curr_center_x <= DEFAULT_CENTRE_X;
             curr_center_y <= DEFAULT_CENTRE_Y;
             curr_zoom <= DEFAULT_ZOOM;
-            curr_max_iter <= ITER_LIMIT_DETAIL;
         end else if (v_begin) begin
             if (reset_view) begin
                 curr_center_x <= DEFAULT_CENTRE_X;
@@ -80,12 +75,6 @@ module param_controller #(
                     curr_center_y <= curr_center_y + pan_step;
                 end
                 
-                // iteration limit control
-                if (max_iter_sel) begin
-                    curr_max_iter <= ITER_LIMIT_DETAIL;
-                end else begin
-                    curr_max_iter <= ITER_LIMIT_FAST;
-                end
             end
         end
     end
@@ -93,6 +82,4 @@ module param_controller #(
     assign centre_x = curr_center_x;
     assign centre_y = curr_center_y;
     assign zoom_level = curr_zoom;
-    assign max_iter_limit = curr_max_iter;
-
 endmodule
