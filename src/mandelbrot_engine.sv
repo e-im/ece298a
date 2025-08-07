@@ -49,29 +49,63 @@ module mandelbrot_engine #(
     logic signed [COORD_WIDTH-1:0] z_real, z_imag;
     logic [5:0] iter_count;
     
+    // computation temporary variables
+    logic signed [2*COORD_WIDTH-1:0] z_real_sq, z_imag_sq, z_cross;
+    logic signed [COORD_WIDTH-1:0] z_real_new, z_imag_new;
+    logic signed [2*COORD_WIDTH-1:0] magnitude_sq_full;
+    
     // simplified scale factor using shifts (much smaller than lookup table)
     logic [3:0] zoom_shift;
+    logic [3:0] zoom_level_clamp;
+    
+    // extract lower 4 bits as continuous assignment
+    assign zoom_level_clamp = zoom_level[3:0];
+    
     always_comb begin
-        zoom_shift = (zoom_level > 15) ? 4'd15 : zoom_level[3:0];
+        zoom_shift = (zoom_level > 15) ? 4'd15 : zoom_level_clamp;
     end
     
-    // coordinate mapping - optimized for 1x2 tile (Q3.8 format)
+    // coordinate mapping for classic Mandelbrot view
     logic signed [COORD_WIDTH-1:0] base_scale;
-    assign base_scale = 11'h100; // base scale factor (1.0 in Q3.8)
+    assign base_scale = 11'h080; // base scale factor (128/256 = 0.5 for 4-unit wide view)
     
     always_comb begin
         logic signed [21:0] temp_real, temp_imag;
         logic signed [COORD_WIDTH-1:0] scale_factor;
+        logic signed [10:0] pixel_offset_x, pixel_offset_y;
         
-        // scale factor using right shift
+        // scale factor using right shift (zoom in makes this smaller)
         scale_factor = base_scale >> zoom_shift;
         
-        // calculate pixel offset from screen center
-        temp_real = ($signed({1'b0, pixel_x}) - 320) * scale_factor;
-        temp_imag = ($signed({1'b0, pixel_y}) - 240) * scale_factor;
+        // calculate pixel offset from screen center (signed arithmetic)
+        pixel_offset_x = $signed({1'b0, pixel_x}) - 320;
+        pixel_offset_y = $signed({1'b0, pixel_y}) - 240;
         
-        c_real = center_x + signed'(temp_real >> FRAC_BITS);
-        c_imag = center_y + signed'(temp_imag >> FRAC_BITS);
+        // multiply by scale and convert to coordinate space
+        temp_real = pixel_offset_x * scale_factor;
+        temp_imag = pixel_offset_y * scale_factor;
+        
+        // add to center position (temp values already in Q11.8, shift to Q3.8)
+        c_real = center_x + signed'(temp_real >>> FRAC_BITS);
+        c_imag = center_y + signed'(temp_imag >>> FRAC_BITS);
+    end
+    
+    // mandelbrot computation (combinational)
+    always_comb begin
+        // mandelbrot iteration: z = z^2 + c
+        z_real_sq = z_real * z_real;
+        z_imag_sq = z_imag * z_imag;
+        z_cross = z_real * z_imag;
+        
+        // new z value, converting from Q6.16 back to Q3.8
+        z_real_new = (z_real_sq >> FRAC_BITS) - (z_imag_sq >> FRAC_BITS) + c_real;
+        z_imag_new = ((z_cross << 1) >> FRAC_BITS) + c_imag; // 2*z_r*z_i
+        
+        // escape condition: |z|^2 > 4
+        // (z_real^2 + z_imag^2) > 4.0
+        // The sum is in Q6.16, so 4.0 is 4 << 16
+        // (z_real^2 + z_imag^2) in Q3.8 > 4.0 in Q3.8
+        magnitude_sq_full = (z_real_sq >> FRAC_BITS) + (z_imag_sq >> FRAC_BITS);
     end
     
     // single-cycle iteration with combined escape check
@@ -93,25 +127,6 @@ module mandelbrot_engine #(
                 end
                 
                 COMPUTE: begin
-                    logic signed [2*COORD_WIDTH-1:0] z_real_sq, z_imag_sq, z_cross;
-                    logic signed [COORD_WIDTH-1:0] z_real_new, z_imag_new;
-                    logic signed [2*COORD_WIDTH-1:0] magnitude_sq_full;
-                    
-                    // mandelbrot iteration: z = z^2 + c
-                    z_real_sq = z_real * z_real;
-                    z_imag_sq = z_imag * z_imag;
-                    z_cross = z_real * z_imag;
-                    
-                    // new z value, converting from Q6.16 back to Q3.8
-                    z_real_new = (z_real_sq >> FRAC_BITS) - (z_imag_sq >> FRAC_BITS) + c_real;
-                    z_imag_new = ((z_cross << 1) >> FRAC_BITS) + c_imag; // 2*z_r*z_i
-                    
-                    // escape condition: |z|^2 > 4
-                    // (z_real^2 + z_imag^2) > 4.0
-                    // The sum is in Q6.16, so 4.0 is 4 << 16
-                    // (z_real^2 + z_imag^2) in Q3.8 > 4.0 in Q3.8
-                    magnitude_sq_full = (z_real_sq >> FRAC_BITS) + (z_imag_sq >> FRAC_BITS);
-                    
                     // 4.0 in Q3.8 is 4 * 2^8 = 1024 (0x400)
                     if (magnitude_sq_full > 11'd1024 || iter_count >= max_iter_limit) begin
                         state <= DONE;

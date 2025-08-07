@@ -26,8 +26,8 @@ module param_controller #(
     wire reset_view  = ui_in[6];
 
     // default view (shows classic Mandelbrot features)
-    localparam signed [COORD_WIDTH-1:0] DEFAULT_CENTRE_X = -11'd128; // -0.5 in Q3.8 (-128 / 2^8)
-    localparam signed [COORD_WIDTH-1:0] DEFAULT_CENTRE_Y = 11'd0;
+    localparam signed [COORD_WIDTH-1:0] DEFAULT_CENTRE_X = -11'd128; // -0.5 in Q3.8 (-128 / 2^8) 
+    localparam signed [COORD_WIDTH-1:0] DEFAULT_CENTRE_Y = 11'd0;     // 0.0 in Q3.8
     localparam [ZOOM_WIDTH-1:0] DEFAULT_ZOOM = 8'd0;
 
     // current parameters

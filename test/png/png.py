@@ -72,9 +72,10 @@ async def test_capture_first_frame(dut):
                 if pixel_coord not in captured_pixels:
                     captured_pixels.add(pixel_coord)
                     
-                    # red[1:0] = {uo_out[0], uo_out[4]}
-                    # green[1:0] = {uo_out[1], uo_out[5]}
-                    # blue[1:0]  = {uo_out[2], uo_out[6]}
+                    # TinyTapeout VGA pinout: R1=uo_out[0], R0=uo_out[4], etc.
+                    # red[1:0] = {R1, R0} = {uo_out[0], uo_out[4]}
+                    # green[1:0] = {G1, G0} = {uo_out[1], uo_out[5]}
+                    # blue[1:0]  = {B1, B0} = {uo_out[2], uo_out[6]}
                     r_val = (dut.uo_out.value[0] << 1) | dut.uo_out.value[4]
                     g_val = (dut.uo_out.value[1] << 1) | dut.uo_out.value[5]
                     b_val = (dut.uo_out.value[2] << 1) | dut.uo_out.value[6]

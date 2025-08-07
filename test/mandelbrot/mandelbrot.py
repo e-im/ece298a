@@ -39,9 +39,10 @@ async def test_mandelbrot_engine_unit(dut):
     await ClockCycles(dut.clk, 2000)  # give engine time to compute
     
     uo_value = int(dut.uo_out.value)
-    red = ((uo_value >> 0) & 1) | (((uo_value >> 4) & 1) << 1)
-    green = ((uo_value >> 1) & 1) | (((uo_value >> 5) & 1) << 1)
-    blue = ((uo_value >> 2) & 1) | (((uo_value >> 6) & 1) << 1)
+    # TinyTapeout VGA: R1=bit0, R0=bit4, G1=bit1, G0=bit5, B1=bit2, B0=bit6
+    red = ((uo_value >> 0) & 1) << 1 | ((uo_value >> 4) & 1)
+    green = ((uo_value >> 1) & 1) << 1 | ((uo_value >> 5) & 1)
+    blue = ((uo_value >> 2) & 1) << 1 | ((uo_value >> 6) & 1)
     
     dut._log.info(f"Initial computation result: R={red}, G={green}, B={blue}")
     
@@ -60,9 +61,9 @@ async def test_mandelbrot_engine_unit(dut):
         await ClockCycles(dut.clk, 50)  # let computation update
         
         uo_value = int(dut.uo_out.value)
-        red = ((uo_value >> 0) & 1) | (((uo_value >> 4) & 1) << 1)
-        green = ((uo_value >> 1) & 1) | (((uo_value >> 5) & 1) << 1)
-        blue = ((uo_value >> 2) & 1) | (((uo_value >> 6) & 1) << 1)
+        red = ((uo_value >> 0) & 1) << 1 | ((uo_value >> 4) & 1)
+        green = ((uo_value >> 1) & 1) << 1 | ((uo_value >> 5) & 1)
+        blue = ((uo_value >> 2) & 1) << 1 | ((uo_value >> 6) & 1)
         
         dut._log.info(f"Color mode {color_mode}: R={red}, G={green}, B={blue}")
         
@@ -115,9 +116,9 @@ async def test_mandelbrot_engine_unit(dut):
     # final sanity check
     final_uo = int(dut.uo_out.value)
     # extract RGB values from final output
-    final_red = ((final_uo >> 0) & 1) | (((final_uo >> 4) & 1) << 1)
-    final_green = ((final_uo >> 1) & 1) | (((final_uo >> 5) & 1) << 1)
-    final_blue = ((final_uo >> 2) & 1) | (((final_uo >> 6) & 1) << 1)
+    final_red = ((final_uo >> 0) & 1) << 1 | ((final_uo >> 4) & 1)
+    final_green = ((final_uo >> 1) & 1) << 1 | ((final_uo >> 5) & 1)
+    final_blue = ((final_uo >> 2) & 1) << 1 | ((final_uo >> 6) & 1)
     
     dut._log.info(f"Final RGB: R={final_red}, G={final_green}, B={final_blue}")
     dut._log.info("Mandelbrot Engine Unit Test PASSED!") 

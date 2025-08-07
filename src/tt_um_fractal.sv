@@ -86,9 +86,9 @@ module tt_um_fractal (
     // start computation when new pixel is active
     assign start_computation = vga_active && enable;
     
-    // mandelbrot computation engine
+    // mandelbrot computation engine (runs on 25MHz for VGA sync)
     mandelbrot_engine mandel (
-        .clk(clk),
+        .clk(clk_25mhz),
         .rst_n(rst_n),
         .pixel_x(pixel_x),
         .pixel_y(pixel_y),
@@ -103,9 +103,9 @@ module tt_um_fractal (
         .busy() // Not used
     );
     
-    // colour mapping
+    // colour mapping (also runs on 25MHz for VGA sync)
     mandelbrot_colour_mapper colors (
-        .clk(clk),
+        .clk(clk_25mhz),
         .rst_n(rst_n),
         .iteration_count(iteration_count),
         .colour_mode(color_mode),

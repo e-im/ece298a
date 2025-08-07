@@ -14,19 +14,23 @@ module mandelbrot_colour_mapper (
 
     // colour processing for smooth gradients
     logic [2:0] color_index;
+    logic [1:0] color_index_reduced;
     logic [1:0] shade;
     logic [1:0] iter_high_bits;
     logic [2:0] iter_mid_bits;
     logic [3:0] iter_low_bits;
     logic iter_parity;
+    logic colour_mode_bit;
     
     // extract different bit ranges for smooth colour transitions
     assign color_index = iteration_count[5:3];      // 8 color levels (0-7)
+    assign color_index_reduced = color_index[1:0];  // reduce to 2 bits for fire theme
     assign shade = iteration_count[1:0];            // 4 shade levels within each color
     assign iter_high_bits = iteration_count[5:4];   // top 2 bits (0-3)
     assign iter_mid_bits = iteration_count[4:2];    // middle 3 bits (0-7) 
     assign iter_low_bits = iteration_count[3:0];    // bottom 4 bits (0-15)
     assign iter_parity = iteration_count[0];        // even/odd iterations
+    assign colour_mode_bit = colour_mode[0];        // extract single bit for color mode
     
     // intermediate signals for combinational logic
     logic [1:0] red_next, green_next, blue_next;
@@ -39,7 +43,7 @@ module mandelbrot_colour_mapper (
             blue_next = 2'b00;
         end else begin
             // simplified to 2 colour schemes only for area reduction
-            case (colour_mode[0]) // only use 1 bit instead of 2
+            case (colour_mode_bit) // only use 1 bit instead of 2
                 1'b0: begin // high-contrast grayscale with smooth gradients
                     if (iteration_count < 8) begin
                         red_next = 2'b11;    // bright white for quick escapes
@@ -57,7 +61,7 @@ module mandelbrot_colour_mapper (
                 end
                 
                 1'b1: begin // fire theme (deep red -> orange -> yellow -> white)
-                    case (color_index[1:0]) // reduce from 3 bits to 2 bits
+                    case (color_index_reduced) // use pre-computed 2-bit signal
                         2'b00: {red_next, green_next, blue_next} = 6'b110000; // deep red
                         2'b01: {red_next, green_next, blue_next} = 6'b111100; // orange
                         2'b10: {red_next, green_next, blue_next} = 6'b111111; // bright yellow

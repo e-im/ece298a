@@ -49,40 +49,55 @@ async def test_fractal_png_fast(dut):
     # Create smaller image buffer
     image_data = np.zeros((CAPTURE_HEIGHT, CAPTURE_WIDTH, 3), dtype=np.uint8)
     
-    # Use a simple counter-based approach instead of VGA timing
-    # This is much faster and good enough for testing
-    
-    # Wait for the system to stabilize
-    await ClockCycles(dut.clk, 100)
-    
-    # Sample pixels at regular intervals
+    # Sample VGA output systematically by waiting for specific coordinates
     sample_count = 0
     total_samples = CAPTURE_WIDTH * CAPTURE_HEIGHT
+    captured_pixels = set()
     
-    for y in range(CAPTURE_HEIGHT):
-        for x in range(CAPTURE_WIDTH):
-            # Wait a few cycles for computation to settle
-            await ClockCycles(dut.clk, 10)
+    # Wait for VGA to start
+    await RisingEdge(dut.v_begin)
+    
+    # Capture pixels by waiting for VGA timing
+    timeout_cycles = 800 * 525 * 3  # More than one full VGA frame
+    for _ in range(timeout_cycles):
+        if len(captured_pixels) >= total_samples:
+            break
             
-            # Extract RGB values from output
-            uo_val = int(dut.uo_out.value)
+        await RisingEdge(dut.clk_25mhz)
+        
+        if dut.vga_active.value:
+            vga_x = dut.pixel_x.value.integer  
+            vga_y = dut.pixel_y.value.integer
             
-            # Extract RGB (2 bits each)
-            red = ((uo_val >> 4) & 1) | (((uo_val) & 1) << 1)
-            green = ((uo_val >> 5) & 1) | (((uo_val >> 1) & 1) << 1)
-            blue = ((uo_val >> 6) & 1) | (((uo_val >> 2) & 1) << 1)
-            
-            # Convert to 8-bit
-            red_8bit = (red * 255) // 3
-            green_8bit = (green * 255) // 3
-            blue_8bit = (blue * 255) // 3
-            
-            image_data[y, x] = [red_8bit, green_8bit, blue_8bit]
-            
-            sample_count += 1
-            if sample_count % 100 == 0:
-                progress = (sample_count / total_samples) * 100
-                dut._log.info(f"Progress: {progress:.1f}%")
+            # Sample every SAMPLE_RATE pixels to create reduced resolution
+            if (vga_x % SAMPLE_RATE == 0 and vga_y % SAMPLE_RATE == 0):
+                # Map to our reduced coordinate system
+                x = vga_x // SAMPLE_RATE
+                y = vga_y // SAMPLE_RATE
+                
+                if (x < CAPTURE_WIDTH and y < CAPTURE_HEIGHT and 
+                    (x, y) not in captured_pixels):
+                    captured_pixels.add((x, y))
+                    
+                    # Extract RGB using correct TinyTapeout pinout
+                    uo_val = int(dut.uo_out.value)
+                    
+                    # TinyTapeout VGA: R1=bit0, R0=bit4, G1=bit1, G0=bit5, B1=bit2, B0=bit6
+                    red = ((uo_val >> 0) & 1) << 1 | ((uo_val >> 4) & 1)
+                    green = ((uo_val >> 1) & 1) << 1 | ((uo_val >> 5) & 1)  
+                    blue = ((uo_val >> 2) & 1) << 1 | ((uo_val >> 6) & 1)
+                    
+                    # Convert to 8-bit (0-3 -> 0-255)
+                    red_8bit = red * 85
+                    green_8bit = green * 85
+                    blue_8bit = blue * 85
+                    
+                    image_data[y, x] = [red_8bit, green_8bit, blue_8bit]
+                    
+                    sample_count += 1
+                    if sample_count % 100 == 0:
+                        progress = (sample_count / total_samples) * 100
+                        dut._log.info(f"Progress: {progress:.1f}%")
     
     # Create and save the image
     image = Image.fromarray(image_data, 'RGB')
