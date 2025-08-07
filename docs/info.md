@@ -1,12 +1,10 @@
-## Project: Verilog Mandelbrot Fractal Generator for TinyTapeout
+## How it Works
 
 This project implements a Mandelbrot set Fractal Generator with VGA output capability. The system generates real-time Mandelbrot set visualizations by computing the mathematical iteration for each pixel coordinate.
 
-### How it works
+The user is able to change the view of the set with the IO pins.
 
-The system operates as a pipelined process synchronized to a pixel clock to generate the video signal.
-
-1.  **Clocking**: The top module `tt_um_fractal` takes a 50MHz system clock uses a clock divider to produce a 25MHz pixel clock required for a 640x480 @ 60Hz VGA signal.
+1.  **Clocking**: The top module `tt_um_fractal` takes a 50MHz system clock and uses a clock divider to produce a 25MHz pixel clock required for the VGA signal generation module.
 
 2.  **VGA Timing**: The `vga` module uses the 25MHz clock to generate standard VGA synchronization signals (`hsync`, `vsync`) and keeps track of the current pixel coordinates being drawn (`hpos`, `vpos`). It also outputs an `active` signal, which is high only when the beam is within the visible 640x480 display area. This is used to synchronize the mandelbrot pixel calculation.
 
@@ -18,11 +16,65 @@ The system operates as a pipelined process synchronized to a pixel clock to gene
 
 6.  **Top-Level Integration**: The `tt_um_fractal` module integrates all these components. It connects the user inputs to the parameter controller, pipes the fractal parameters and pixel coordinates to the calculation engine, sends the iteration count to the color mapper, and finally drives the VGA output pins with the resulting color data and sync signals.
 
+### Architecture Diagram
+
+```mermaid
+flowchart LR
+ subgraph Inputs["Inputs"]
+    direction TB
+        ui_in["ui_in[7:0]"]
+        uio_in["uio_in[7:0]"]
+        clk["clk"]
+        rst_n["rst_n"]
+  end
+ subgraph Outputs["Outputs"]
+    direction TB
+        uo_out["uo_out[7:0]"]
+  end
+ subgraph tt_um_fractal["tt_um_fractal"]
+    direction LR
+        Inputs
+        vga_inst["vga vga_timing"]
+        param_controller_inst["param_controller params"]
+        mandelbrot_engine_inst["mandelbrot_engine mandel"]
+        colour_mapper_inst["mandelbrot_colour_mapper colours"]
+        clk_divider["clk_div logic"]
+        Outputs
+  end
+    clk ==> clk_divider & param_controller_inst & mandelbrot_engine_inst & colour_mapper_inst
+    rst_n --> colour_mapper_inst & param_controller_inst & vga_inst & mandelbrot_engine_inst
+    ui_in -- ui_in --> param_controller_inst
+    uio_in -- colour_mode[1:0] --> colour_mapper_inst
+    uio_in -- uio_in --> param_controller_inst
+    clk_divider -- clk_25mhz --> vga_inst
+    vga_inst -- v_begin --> param_controller_inst
+    vga_inst -- pixel_x, pixel_y --> mandelbrot_engine_inst
+    vga_inst -- vga_hsync, vga_vsync --> uo_out
+    vga_inst -- active --o mandelbrot_engine_inst
+    param_controller_inst -- centre_x, centre_y, zoom_level --> mandelbrot_engine_inst
+    mandelbrot_engine_inst -- iteration_count --> colour_mapper_inst
+    mandelbrot_engine_inst -- in_set --> colour_mapper_inst
+    colour_mapper_inst -- red, green, blue --> uo_out
+
+    linkStyle 0 stroke:#00C853,fill:none
+    linkStyle 1 stroke:#00C853,fill:none
+    linkStyle 2 stroke:#00C853,fill:none
+    linkStyle 3 stroke:#00C853,fill:none
+    linkStyle 4 stroke:#AA00FF,fill:none
+    linkStyle 5 stroke:#AA00FF,fill:none
+    linkStyle 6 stroke:#AA00FF,fill:none
+    linkStyle 7 stroke:#AA00FF,fill:none
+    linkStyle 8 stroke:#FF6D00,fill:none
+    linkStyle 9 stroke:#FF6D00
+    linkStyle 10 stroke:#FF6D00,fill:none
+    linkStyle 11 stroke:#00AAAC,fill:none
+```
+
 ---
 
 ### IO Table: `vga`
 
-| **Name**            | **Verilog** | **Description**                                             | **I/O** | **Width** | **Trigger** |
+| **Name**            | **Verilog** | **Description**                                             | **I/O** | **Width** | **Type**    |
 | :------------------ | :---------- | :---------------------------------------------------------- | :-----: | :-------: | :---------- |
 | Clock               | `clk`       | 25MHz pixel clock signal. dividided from 50MHz system clock |    I    |     1     | Rising Edge |
 | Reset               | `rst_n`     | Asynchronous active-low reset                               |    I    |     1     | Active Low  |
@@ -35,10 +87,9 @@ The system operates as a pipelined process synchronized to a pixel clock to gene
 | Vertical Position   | `vpos`      | Current vertical line coordinate (Y)                        |    O    |    10     | N/A         |
 
 #### Notes
-* The module is parameterized for a standard **640x480 @ 60Hz** VGA resolution.
+* The module is parameterized for a standard **640x480 @ 60Hz** VGA resolution, but can be run at lower resolutions for fast tests.
 * The `hpos` and `vpos` counters increment on each enabled clock edge, scanning the screen from left to right, top to bottom.
-* The `active` signal should be used by upstream modules to know when it is valid to provide pixel data.
-* The `v_begin` signal is crucial for modules like `param_controller` to synchronize their updates to the frame rate, preventing mid-frame changes.
+* The `active` signal should be used by the mandelbrot engine to know which pixels are in view of the screen.
 
 ---
 
@@ -128,65 +179,58 @@ The system operates as a pipelined process synchronized to a pixel clock to gene
 
 ### How to Test
 
-This section outlines a comprehensive test plan for verifying the Mandelbrot fractal generator, from individual units to the full system.
+This section on testing in hardware. For unit tests see [test.md](./test.md)
 
-#### Phase 1: Unit Testing
-1.  **Clock Domain Testing**
-    * Verify clock division from 50MHz to 25MHz.
-    * Test reset synchronization and deassertion.
-    * Validate timing constraints at maximum frequency.
-2.  **Coordinate Generator Testing**
-    * Verify X/Y counter sequences (0-639, 0-479 for VGA).
-    * Test overflow and wraparound behavior.
-    * Validate coordinate mapping to the complex plane.
-3.  **Mandelbrot Computation Engine Testing**
-    * Test known points: (0,0) should not escape; (-2,0) should escape quickly.
-    * Verify iteration limits and escape detection.
-    * Test edge cases and boundary conditions.
+#### Hardware Setup
 
-#### Phase 2: Integration Testing
-1.  **VGA Timing Verification**
-    * Verify HSYNC/VSYNC timing with VGA standards (640x480@60Hz).
-    * Test blanking periods and active video regions.
-    * Validate 2-bit RGB colour output levels.
-2.  **Parameter Control System**
-    * Test VSYNC-synchronized parameter updates.
-    * Verify bidirectional pin data transfer during vertical blanking.
-    * Test continuous pan control operation (e.g., holding `pan_left`).
-    * Validate the `apply_params` signal timing.
-3.  **End-to-End Functionality**
-    * Generate test patterns like solid colours and gradients.
-    * Verify complete Mandelbrot set rendering.
-    * Test real-time zoom and pan navigation.
-    * Verify no visual artifacts during parameter changes.
+**Required Components:**
+* VGA monitor
+* TinyTapeout VGA PMOD
+* 11 buttons or switches for `ui_in[7:0]`, `uio_in[1:0]`, and `rst_n`.
+* A 50 MHz clock source.
 
-#### Phase 3: System Validation
-1.  **Performance Testing**
-    * Measure frame rate stability during parameter updates.
-    * Verify real-time rendering capability with active controls.
-    * Test resource utilization within TinyTapeout constraints.
-2.  **User Interface Testing**
-    * Test all directional controls (zoom in/out, 4-direction pan).
-    * Verify the parameter data bus for setting specific coordinates.
-    * Test parameter persistence across multiple frames.
-    * Validate a smooth navigation experience.
+#### Test Procedure
 
-#### Test Bench Scenarios
-* Reset behavior verification.
-* Single pixel computation test.
-* Full frame generation test.
-* VGA timing compliance test.
-* Input parameter change test (zoom, colour mode).
-* 2-bit RGB colour output verification.
+1.  **Initial Display and Enable**
+    * Connect all required hardware and power on the VGA display, then the rest of the test setup.
+    * Press `rst_n` button to initialize the design.
+    * Set the `ui_in[7]` switch (Enable) to '1' (high). All other `ui_in` switches should be '0'.
+    * **Expected Result:** The default view of the Mandelbrot set should appear on the VGA monitor.
 
-#### Success Criteria
-* **VGA Timing**: Maintains 60Hz refresh rate with stable sync signals.
-* **Resource**: Fits within 1x2 TinyTapeout tile constraints.
-* **Interface**: Directional controls respond smoothly with VSYNC synchronization.
-* **Navigation**: Real-time zoom and pan with no visual artifacts during parameter updates.
-* **Parameter Bus**: Bidirectional interface correctly sets specific coordinates and zoom levels.
-* **Quality**: Recognizable Mandelbrot set features with a smooth navigation experience.
-* **Colour Output**: Conforms to the standard TinyTapeout VGA pinout.
+2.  **Pan/Zoom**
+    * **Zoom In:** Toggle the `ui_in[0]` switch high, then low. The view should zoom in.
+    * **Zoom Out:** Toggle the `ui_in[1]` switch high, then low. The view should zoom out.
+    * **Pan:** Toggle switches `ui_in[2]` (Left), `ui_in[3]` (Right), `ui_in[4]` (Up), and `ui_in[5]` (Down) one at a time. The view should pan.
+    * **Reset View:** After zooming and panning, toggle the `ui_in[6]` switch high, then low. The view should return to the initial default state seen at power-up.
 
-#### Required External Hardware
-* **VGA PMOD**: To connect the FPGA/ASIC output to a standard VGA monitor.
+3.  **Colour Mode**
+    * Toggle the switch connected to `uio_in[0]`. This should change the colour model.
+    * **Expected Result:** The colour palette used to render the fractal will change.
+        * `uio_in[0] = 0`: Grayscale colour scheme.
+        * `uio_in[0] = 1`: "Fire" theme (red/orange/yellow).
+
+#### Control Signal Format
+
+The design is controlled via simple high/low logic levels. Except for `rst_n` which is asynchronous and active low, all other inputs will only take effect at the start of a new frame to prevent screen tearing and are active high. So for example holding the zoom input high for multiple frames will cause more zoom at the begining of each new frame.
+
+#### External Hardware
+
+* VGA monitor
+* TinyTapeout VGA PMOD
+* 11 buttons or switches for `ui_in[7:0]`, `uio_in[1:0]`, and `rst_n`.
+* A 50 MHz clock source.
+
+#### Pin Connections (more detail in pin sections above)
+
+* `ui_in[0]`: Zoom In control
+* `ui_in[1]`: Zoom Out control
+* `ui_in[2]`: Pan Left control
+* `ui_in[3]`: Pan Right control
+* `ui_in[4]`: Pan Up control
+* `ui_in[5]`: Pan Down control
+* `ui_in[6]`: Reset View control
+* `ui_in[7]`: Master Enable (1 = On, 0 = Off)
+* `uo_out[7:0]`: VGA output signals (connect to VGA PMOD/breakout).
+* `uio_in[1:0]`: Colour Mode select.
+* `rst_n`: Active-low reset button.
+* `clk`: 50 MHz system clock input.
