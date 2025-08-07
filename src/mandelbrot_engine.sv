@@ -65,46 +65,58 @@ module mandelbrot_engine #(
         zoom_shift = (zoom_level > 15) ? 4'd15 : zoom_level_clamp;
     end
     
-    // coordinate mapping for classic Mandelbrot view
+    // coordinate mapping for classic Mandelbrot view - optimized for timing
     logic signed [COORD_WIDTH-1:0] base_scale;
     assign base_scale = 11'h080; // base scale factor (128/256 = 0.5 for 4-unit wide view)
     
+    // Pre-computed constants for better timing
+    logic signed [10:0] pixel_offset_x, pixel_offset_y;
+    logic signed [COORD_WIDTH-1:0] scale_factor;
+    
     always_comb begin
-        logic signed [21:0] temp_real, temp_imag;
-        logic signed [COORD_WIDTH-1:0] scale_factor;
-        logic signed [10:0] pixel_offset_x, pixel_offset_y;
-        
-        // scale factor using right shift (zoom in makes this smaller)
+        // Pre-compute scale factor (single shift operation)
         scale_factor = base_scale >> zoom_shift;
         
-        // calculate pixel offset from screen center (signed arithmetic)
-        pixel_offset_x = $signed({1'b0, pixel_x}) - 320;
-        pixel_offset_y = $signed({1'b0, pixel_y}) - 240;
-        
-        // multiply by scale and convert to coordinate space
+        // Pre-compute pixel offsets (simple subtraction)
+        pixel_offset_x = $signed({1'b0, pixel_x}) - 11'd320;
+        pixel_offset_y = $signed({1'b0, pixel_y}) - 11'd240;
+    end
+    
+    // Pipeline coordinate computation for timing closure
+    logic signed [21:0] temp_real, temp_imag;
+    always_comb begin
+        // multiply by scale - single multiplication per coordinate
         temp_real = pixel_offset_x * scale_factor;
         temp_imag = pixel_offset_y * scale_factor;
         
-        // add to center position (temp values already in Q11.8, shift to Q3.8)
+        // add to center position (optimized bit manipulation)
         c_real = center_x + signed'(temp_real >>> FRAC_BITS);
         c_imag = center_y + signed'(temp_imag >>> FRAC_BITS);
     end
     
-    // mandelbrot computation (combinational)
+    // Pipeline stage 1: multiplication (registered for timing)
+    logic signed [2*COORD_WIDTH-1:0] z_real_sq_reg, z_imag_sq_reg, z_cross_reg;
+    
+    always_ff @(posedge clk) begin
+        if (enable && state == COMPUTE) begin
+            z_real_sq_reg <= z_real * z_real;
+            z_imag_sq_reg <= z_imag * z_imag;
+            z_cross_reg <= z_real * z_imag;
+        end
+    end
+    
+    // mandelbrot computation (combinational - reduced complexity)
     always_comb begin
-        // mandelbrot iteration: z = z^2 + c
-        z_real_sq = z_real * z_real;
-        z_imag_sq = z_imag * z_imag;
-        z_cross = z_real * z_imag;
+        // Use registered multiplication results for better timing
+        z_real_sq = (state == COMPUTE) ? z_real_sq_reg : z_real * z_real;
+        z_imag_sq = (state == COMPUTE) ? z_imag_sq_reg : z_imag * z_imag;
+        z_cross = (state == COMPUTE) ? z_cross_reg : z_real * z_imag;
         
-        // new z value, converting from Q6.16 back to Q3.8
+        // new z value, converting from Q6.16 back to Q3.8 - split into stages
         z_real_new = (z_real_sq >> FRAC_BITS) - (z_imag_sq >> FRAC_BITS) + c_real;
         z_imag_new = ((z_cross << 1) >> FRAC_BITS) + c_imag; // 2*z_r*z_i
         
-        // escape condition: |z|^2 > 4
-        // (z_real^2 + z_imag^2) > 4.0
-        // The sum is in Q6.16, so 4.0 is 4 << 16
-        // (z_real^2 + z_imag^2) in Q3.8 > 4.0 in Q3.8
+        // escape condition: |z|^2 > 4 - simplified comparison
         magnitude_sq_full = (z_real_sq >> FRAC_BITS) + (z_imag_sq >> FRAC_BITS);
     end
     
@@ -127,11 +139,16 @@ module mandelbrot_engine #(
                 end
                 
                 COMPUTE: begin
+                    // Optimized escape condition - pre-compute comparisons for timing
                     // 4.0 in Q3.8 is 4 * 2^8 = 1024 (0x400)
-                    if (magnitude_sq_full > 11'd1024 || iter_count >= max_iter_limit) begin
+                    logic escaped, max_reached;
+                    escaped = magnitude_sq_full > 11'd1024;
+                    max_reached = iter_count >= max_iter_limit;
+                    
+                    if (escaped || max_reached) begin
                         state <= DONE;
                     end else begin
-                        // Continue iterating
+                        // Continue iterating - register updates
                         z_real <= z_real_new;
                         z_imag <= z_imag_new;
                         iter_count <= iter_count + 1;

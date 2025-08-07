@@ -91,8 +91,28 @@ report_clock_skew
 
 # generate summary
 puts "\n=== Timing Summary ==="
-puts "WNS (Worst Negative Slack): [get_property [get_timing_paths -max_paths 1] slack]"
-puts "TNS (Total Negative Slack): [get_property [get_timing_paths] slack_total]"
+
+# get WNS using report_wns or report_timing
+if {[info commands report_wns] != ""} {
+    set wns [report_wns]
+    puts "WNS (Worst Negative Slack): $wns"
+} else {
+    # Fallback: use report_timing to get worst slack
+    set timing_report [report_timing -max_paths 1 -format full_clock_expanded]
+    # Extract slack from timing report (this is a simplified approach)
+    puts "WNS (Worst Negative Slack): Check timing report above"
+}
+
+# Get TNS using report_tns or get_tns
+if {[info commands report_tns] != ""} {
+    set tns [report_tns]
+    puts "TNS (Total Negative Slack): $tns"
+} elseif {[info commands get_tns] != ""} {
+    set tns [get_tns]
+    puts "TNS (Total Negative Slack): $tns"
+} else {
+    puts "TNS (Total Negative Slack): Use report_checks for detailed timing"
+}
 
 puts "\nTiming analysis completed!"
 puts "Check for any timing violations above."
