@@ -20,7 +20,7 @@ module tt_um_fractal (
 );
 
     // iteration cap
-    localparam MAX_ITERATIONS = 6'd32;
+    localparam MAX_ITERATIONS = 6'd16;
 
     // tile replication. compute one pixel per tile and
     // replicate across an h×v block. expose a few stride presets via uio_in[3:2]
@@ -66,8 +66,8 @@ module tt_um_fractal (
     logic [9:0] pixel_x, pixel_y;
     logic frame_start;
     
-    // mandelbrot computation signals
-    logic signed [10:0] centre_x, centre_y;
+    // mandelbrot computation signals 
+    logic signed [8:0] centre_x, centre_y;
     logic [7:0] zoom_level_8bit;
     logic [5:0] iteration_count;
     logic computation_done;
@@ -106,7 +106,9 @@ module tt_um_fractal (
     );
     
     // parameter controller for zoom/pan
-    param_controller params (
+    param_controller #(
+        .COORD_WIDTH(9)
+    ) params (
         .clk(clk),
         .rst_n(rst_n),
         .v_begin(frame_start),
@@ -133,7 +135,10 @@ module tt_um_fractal (
     end
     
     // mandelbrot computation engine
-    mandelbrot_engine mandel (
+    mandelbrot_engine #(
+        .COORD_WIDTH(9),
+        .FRAC_BITS(6)
+    ) mandel (
         .clk(clk),
         .rst_n(rst_n),
         .pixel_x(pixel_x),
