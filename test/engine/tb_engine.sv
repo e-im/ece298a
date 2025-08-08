@@ -2,8 +2,8 @@
 `timescale 1ns / 1ps
 
 module tb_engine ();
-  parameter COORD_WIDTH = 12;
-  parameter FRAC_BITS = 9;
+  parameter COORD_WIDTH = 11;
+  parameter FRAC_BITS = 8;
 
   reg clk;
   reg rst_n;
@@ -25,11 +25,6 @@ module tb_engine ();
     $dumpvars(0, tb_engine);
   end
 
-  // generate 50MHz clock (20ns period)
-  initial begin
-    clk = 0;
-    forever #10 clk = ~clk;  // toggle every 10ns = 50MHz
-  end
 
   `ifdef GL_TEST
     mandelbrot_engine dut (

@@ -18,7 +18,7 @@ async def test_mandelbrot_engine_unit(dut):
     # reset sequence
     dut._log.info("Initializing...")
     dut.ena.value = 1
-    dut.ui_in.value = 0b10000000  # enable=1, default color mode
+    dut.ui_in.value = 0b10000000  # enable=1, default colour mode
     dut.uio_in.value = 0x00
     dut.rst_n.value = 0
 
@@ -52,26 +52,26 @@ async def test_mandelbrot_engine_unit(dut):
     
     dut._log.info("Engine produces valid RGB output!")
 
-    dut._log.info("Test 2: Colour mode variations")
+    dut._log.info("Test 2: colour mode variations")
     
-    # test all 4 colour modes
+    # test colour modes (design uses uio_in[1:0]; bit 0 selects scheme)
     for color_mode in range(4):
-        dut.ui_in.value = 0b10000000 | (color_mode << 3)  # enable + color_mode
-        await ClockCycles(dut.clk, 50)  # let computation update
+        dut.ui_in.value = 0b10000000  # enable=1
+        dut.uio_in.value = color_mode & 0x3
+        await ClockCycles(dut.clk, 50)
         
         uo_value = int(dut.uo_out.value)
         red = ((uo_value >> 0) & 1) | (((uo_value >> 4) & 1) << 1)
         green = ((uo_value >> 1) & 1) | (((uo_value >> 5) & 1) << 1)
         blue = ((uo_value >> 2) & 1) | (((uo_value >> 6) & 1) << 1)
         
-        dut._log.info(f"Color mode {color_mode}: R={red}, G={green}, B={blue}")
+        dut._log.info(f"colour mode {color_mode}: R={red}, G={green}, B={blue}")
         
-        # verify valid output ranges
-        assert 0 <= red <= 3, f"Invalid red value {red} for color mode {color_mode}"
-        assert 0 <= green <= 3, f"Invalid green value {green} for color mode {color_mode}"
-        assert 0 <= blue <= 3, f"Invalid blue value {blue} for color mode {color_mode}"
+        assert 0 <= red <= 3, f"invalid red value {red} for colour mode {color_mode}"
+        assert 0 <= green <= 3, f"invalid green value {green} for colour mode {color_mode}"
+        assert 0 <= blue <= 3, f"invalid blue value {blue} for colour mode {color_mode}"
     
-    dut._log.info("✅ All color modes produce valid outputs")
+    dut._log.info("all colour modes produce valid outputs")
 
     dut._log.info("Test 3: Engine enable/disable")
     

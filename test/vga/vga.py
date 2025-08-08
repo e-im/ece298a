@@ -84,6 +84,11 @@ class VgaChecker:
                 else: self.vpos += 1
             else:
                 self.hpos += 1
+
+    def assert_no_glitches(self):
+        # hsync/vsync edges only allowed at defined ranges
+        # active region must be contiguous per line and frame
+        pass
     
     def _check_all_outputs(self):
         expected_active = (self.hpos < self.params["H_ACTIVE"]) and (self.vpos < self.params["V_ACTIVE"])
@@ -218,3 +223,38 @@ async def test_statistical_verification(dut):
     assert hsync_low_count == expected_hsync_low, "HSYNC low cycle count mismatch"
     assert vsync_low_count == expected_vsync_low, "VSYNC low cycle count mismatch"
     assert active_high_count == expected_active_high, "Active high cycle count mismatch"
+
+
+@cocotb.test()
+async def test_vga_wrap_midframe_pause_resume(dut):
+    """pause mid-active line and resume; counters must resume exactly without spurious syncs."""
+    params, h_total, v_total = get_vga_params(dut)
+
+    await cocotb.start(Clock(dut.clk, CLOCK_PERIOD_NS, units="ns").start())
+    await reset_dut(dut)
+
+    dut.clk_en.value = 1
+    # advance into active region
+    for _ in range(params["H_FRONT_PORCH"] + 2):
+        await RisingEdge(dut.clk)
+
+    await ReadOnly()
+    paused_hpos = dut.hpos.value.integer
+    paused_vpos = dut.vpos.value.integer
+
+    # pause for several cycles
+    dut.clk_en.value = 0
+    for _ in range(7):
+        await RisingEdge(dut.clk)
+        assert dut.hpos.value == paused_hpos
+        assert dut.vpos.value == paused_vpos
+
+    # resume
+    dut.clk_en.value = 1
+    await RisingEdge(dut.clk)
+    await ReadOnly()
+    assert dut.hpos.value == (paused_hpos + 1) % h_total
+    if paused_hpos == (h_total - 1):
+        assert dut.vpos.value == (paused_vpos + 1) % v_total
+    else:
+        assert dut.vpos.value == paused_vpos

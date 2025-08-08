@@ -19,7 +19,26 @@ module tt_um_fractal (
     input  wire       rst_n     // reset_n - low to reset
 );
 
-    localparam MAX_ITERATIONS = 6'd63;
+    // iteration cap
+    localparam MAX_ITERATIONS = 6'd32;
+
+    // tile replication. compute one pixel per tile and
+    // replicate across an h×v block. expose a few stride presets via uio_in[3:2]
+    // 00: 64×16, 01: 32×8, 10: 32×16, 11: 16×8
+    logic [1:0] stride_sel;
+    assign stride_sel = uio_in[3:2];
+
+    logic [3:0] h_stride_shift, v_stride_shift;
+    always_comb begin
+        unique case (stride_sel)
+            2'b00: begin h_stride_shift = 4'd6; v_stride_shift = 4'd4; end // 64×16
+            2'b01: begin h_stride_shift = 4'd5; v_stride_shift = 4'd3; end // 32×8
+            2'b10: begin h_stride_shift = 4'd5; v_stride_shift = 4'd4; end // 32×16
+            default: begin h_stride_shift = 4'd4; v_stride_shift = 4'd3; end // 16×8
+        endcase
+    end
+
+    localparam int MAX_TILES_X = 640 / 16; // worst case (smallest stride)
 
     // control signals from UI pins
     wire zoom_in     = ui_in[0];
@@ -32,7 +51,7 @@ module tt_um_fractal (
     wire enable      = ui_in[7];
     
     // colour mode from bidirectional pins
-    wire [1:0] color_mode = uio_in[1:0];
+    wire [1:0] colour_mode = uio_in[1:0];
     
     // generate 25MHz pixel clock
     logic clk_div;
@@ -48,7 +67,7 @@ module tt_um_fractal (
     logic frame_start;
     
     // mandelbrot computation signals
-    logic signed [10:0] center_x, center_y;
+    logic signed [10:0] centre_x, centre_y;
     logic [7:0] zoom_level_8bit;
     logic [5:0] iteration_count;
     logic computation_done;
@@ -57,6 +76,21 @@ module tt_um_fractal (
     // colour output signals
     logic [1:0] red, green, blue;
     logic [1:0] red_reg, green_reg, blue_reg;
+
+    // tile storage for one macroblock row (max 40 entries of 2-bit rgb)
+    logic [1:0] tile_red_line   [0:MAX_TILES_X-1];
+    logic [1:0] tile_green_line [0:MAX_TILES_X-1];
+    logic [1:0] tile_blue_line  [0:MAX_TILES_X-1];
+
+    // derive tile boundaries and indices from current vga counters
+    logic [9:0] h_mask, v_mask;
+    always_comb begin
+        h_mask = ((10'(1) << h_stride_shift) - 1);
+        v_mask = ((10'(1) << v_stride_shift) - 1);
+    end
+    wire is_first_col  = ((pixel_x & h_mask) == 10'd0);
+    wire is_first_line = ((pixel_y & v_mask) == 10'd0);
+    wire [5:0] tile_x_index = pixel_x >> h_stride_shift; // up to 39
     
     // VGA timing generator (640x480 @ 60Hz)
     vga vga_timing (
@@ -78,13 +112,25 @@ module tt_um_fractal (
         .v_begin(frame_start),
         .ui_in(ui_in),
         .uio_in(uio_in),
-        .centre_x(center_x),
-        .centre_y(center_y),
+        .centre_x(centre_x),
+        .centre_y(centre_y),
         .zoom_level(zoom_level_8bit)
     );
     
-    // start computation when new pixel is active
-    assign start_computation = vga_active && enable;
+    // start a computation only at the top-left of a tile on the first line of
+    // a macroblock row. engine runs on 50 mhz for extra headroom.
+    assign start_computation = vga_active && enable && is_first_col && is_first_line;
+
+    // remember which tile we launched for; latency is < tile time with chosen
+    // strides, so we can store directly on result without fifo.
+    logic [5:0] launched_tile_x;
+    always_ff @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            launched_tile_x <= '0;
+        end else if (start_computation) begin
+            launched_tile_x <= tile_x_index;
+        end
+    end
     
     // mandelbrot computation engine
     mandelbrot_engine mandel (
@@ -93,8 +139,8 @@ module tt_um_fractal (
         .pixel_x(pixel_x),
         .pixel_y(pixel_y),
         .pixel_valid(start_computation),
-        .center_x(center_x),
-        .center_y(center_y),
+        .center_x(centre_x),
+        .center_y(centre_y),
         .zoom_level(zoom_level_8bit),
         .max_iter_limit(MAX_ITERATIONS),
         .enable(enable),
@@ -108,23 +154,40 @@ module tt_um_fractal (
         .clk(clk),
         .rst_n(rst_n),
         .iteration_count(iteration_count),
-        .colour_mode(color_mode),
+        .colour_mode(colour_mode),
         .in_set(iteration_count >= MAX_ITERATIONS),
         .red(red),
         .green(green),
         .blue(blue)
     );
+
+    // store tile colour when computation for that tile completes
+    always_ff @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            integer i;
+            for (i = 0; i < MAX_TILES_X; i = i + 1) begin
+                tile_red_line[i]   <= 2'b00;
+                tile_green_line[i] <= 2'b00;
+                tile_blue_line[i]  <= 2'b00;
+            end
+        end else if (computation_done) begin
+            tile_red_line[launched_tile_x]   <= red;
+            tile_green_line[launched_tile_x] <= green;
+            tile_blue_line[launched_tile_x]  <= blue;
+        end
+    end
     
-    // register RGB outputs for stable VGA (synchronized to 25MHz)
+    // register rgb outputs for stable vga (25 mhz). read tile colour for
+    // current x tile; hold across all lines in the macroblock.
     always_ff @(posedge clk_25mhz or negedge rst_n) begin
         if (!rst_n) begin
             red_reg <= 2'b00;
             green_reg <= 2'b00;
             blue_reg <= 2'b00;
         end else if (vga_active && enable) begin
-            red_reg <= red;
-            green_reg <= green;
-            blue_reg <= blue;
+            red_reg   <= tile_red_line[tile_x_index];
+            green_reg <= tile_green_line[tile_x_index];
+            blue_reg  <= tile_blue_line[tile_x_index];
         end else if (!vga_active) begin
             // black during blanking
             red_reg <= 2'b00;

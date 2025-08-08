@@ -1,8 +1,10 @@
 ![](../../workflows/gds/badge.svg) ![](../../workflows/docs/badge.svg) ![](../../workflows/test/badge.svg) ![](../../workflows/fpga/badge.svg)
 
-# Tiny Tapeout Verilog Project Template
+# VGA Mandelbrot Fractal Generator (Tiny Tapeout 1x2)
 
-- [Read the documentation for project](docs/info.md)
+- Project documentation:
+  - Single source of truth: [docs/info.md](docs/info.md)
+  - Contributions: [docs/contributions.md](docs/contributions.md)
 
 ## What is Tiny Tapeout?
 

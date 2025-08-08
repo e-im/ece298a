@@ -1,10 +1,10 @@
-// colour mapper for converting iteration count to RGB
+// colour mapper for converting iteration count to rgb
 /* verilator lint_off UNUSEDSIGNAL */
 module mandelbrot_colour_mapper (
     input  logic clk,               
     input  logic rst_n,             
     input  logic [5:0] iteration_count,
-    input  logic [1:0] colour_mode,      // 4 different colour schemes
+    input  logic [1:0] colour_mode,      // colour scheme select (bit 0 used)
     input  logic in_set,
     
     output logic [1:0] red,
@@ -40,17 +40,17 @@ module mandelbrot_colour_mapper (
         end else begin
             // simplified to 2 colour schemes only for area reduction
             case (colour_mode[0]) // only use 1 bit instead of 2
-                1'b0: begin // high-contrast grayscale with smooth gradients
+                1'b0: begin // high-contrast greyscale with smooth gradients
                     if (iteration_count < 8) begin
                         red_next = 2'b11;    // bright white for quick escapes
                         green_next = 2'b11;
                         blue_next = 2'b11;
                     end else if (iteration_count < 24) begin
-                        red_next = 2'b10;    // medium gray
+                        red_next = 2'b10;    // medium grey
                         green_next = 2'b10;
                         blue_next = 2'b10;
                     end else begin
-                        red_next = 2'b01;    // dark gray for slow escapes
+                        red_next = 2'b01;    // dark grey for slow escapes
                         green_next = 2'b01;
                         blue_next = 2'b01;
                     end

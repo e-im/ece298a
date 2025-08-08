@@ -22,44 +22,7 @@ module tb_mandelbrot ();
     #1;
   end
 
-  // generate 50MHz clock (20ns period)
-  initial begin
-    clk = 0;
-    forever #10 clk = ~clk;  // toggle every 10ns = 50MHz
-  end
 
-  // test stimulus
-  initial begin
-    // initialize signals
-    rst_n = 0;
-    ena = 1;
-    ui_in = 8'b10000000;  // enable=1, default color mode
-    uio_in = 8'b00000000;
-    
-    // hold reset for a few cycles
-    #100;
-    rst_n = 1;
-    
-    // run for enough time to see computation
-    #100000;
-    
-    // test different colour modes
-    ui_in = 8'b10001000;  // enable=1, color_mode=1
-    #2000;
-    
-    ui_in = 8'b10010000;  // enable=1, color_mode=2
-    #2000;
-    
-    ui_in = 8'b10011000;  // enable=1, color_mode=3
-    #2000;
-    
-    // test disable
-    ui_in = 8'b00000000;  // disable
-    #1000;
-    
-    $display("Simulation completed");
-    $finish;
-  end
 
   // instantiate the module
   tt_um_fractal user_project (

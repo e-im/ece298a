@@ -24,32 +24,6 @@ module tb_vga ();
     #1;
   end
 
-  // generate 25MHz clock (40ns period)
-  initial begin
-    clk = 0;
-    forever #20 clk = ~clk;  // toggle every 20ns = 25MHz
-  end
-
-  // test stimulus
-  initial begin
-    // initialize signals
-    rst_n = 0;
-    clk_en = 0;
-    
-    // hold reset for a few cycles
-    #100;
-    rst_n = 1;
-    
-    // enable clock after reset
-    #100;
-    clk_en = 1;
-    
-    // run for enough time to see VGA timing
-    #100000;
-    
-    $display("VGA simulation completed");
-    $finish;
-  end
 
 `ifdef VGA_MODE_LARGE
     parameter int H_ACTIVE      = 640;

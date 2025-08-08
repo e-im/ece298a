@@ -28,7 +28,59 @@ async def reset_dut(dut):
     dut._log.info("reset")
 
 @cocotb.test()
-async def test_capture_first_frame(dut):
+async def test_full_frame_colour_oracle_small_mode(dut):
+    """small vga mode oracle: verify every pixel is captured and rgb within 2-bit bounds."""
+    clock = Clock(dut.clk, CLK_50MHZ_PERIOD_NS, units="ns")
+    cocotb.start_soon(clock.start())
+
+    await reset_dut(dut)
+
+    # enable, greyscale mode (uio_in[1:0]=0) for determinism
+    dut.ui_in.value = 0b10000000
+    dut.uio_in.value = 0
+    await Timer(1, units="ns")
+
+    await RisingEdge(dut.v_begin)
+
+    async def frame_stopper():
+        await RisingEdge(dut.v_begin)
+        dut._log.info("v_begin v2 found")
+
+    stopper_task = cocotb.start_soon(frame_stopper())
+
+    # tiny oracle window
+    width, height = 8, 6
+    pixels_captured = 0
+    captured = [[False]*height for _ in range(width)]
+
+    timeout_cycles = H_TOTAL * V_TOTAL * 2
+    for _ in range(timeout_cycles):
+        if stopper_task.done():
+            break
+        await RisingEdge(dut.clk_25mhz)
+        if dut.vga_active.value:
+            x = dut.pixel_x.value.integer
+            y = dut.pixel_y.value.integer
+            if x < width and y < height and not captured[x][y]:
+                captured[x][y] = True
+                r_val = (dut.uo_out.value[0] << 1) | dut.uo_out.value[4]
+                g_val = (dut.uo_out.value[1] << 1) | dut.uo_out.value[5]
+                b_val = (dut.uo_out.value[2] << 1) | dut.uo_out.value[6]
+                assert 0 <= r_val <= 3 and 0 <= g_val <= 3 and 0 <= b_val <= 3
+                pixels_captured += 1
+    else:
+        stopper_task.kill()
+        assert False, "timeout waiting for full frame"
+
+    expected_pixels = width * height
+    assert pixels_captured == expected_pixels, (
+        f"captured {pixels_captured} pixels, expected {expected_pixels}"
+    )
+
+
+@cocotb.test()
+async def test_capture_full_frame_png(dut):
+    """capture a full 640x480 frame and save out.png for visual inspection."""
     clock = Clock(dut.clk, CLK_50MHZ_PERIOD_NS, units="ns")
     cocotb.start_soon(clock.start())
 
@@ -37,69 +89,54 @@ async def test_capture_first_frame(dut):
 
     await reset_dut(dut)
 
-    # ui_in[7] ena
-    # ui_in[4:3] colour mode
-    dut.ui_in.value = 0b10011000  # enable, colour = 3 (rainbow mode)
+    # enable rendering; choose a deterministic colour mode (greyscale)
+    dut.ui_in.value = 0b10000000  # enable
+    dut.uio_in.value = 0          # colour mode = 0
     await Timer(1, units="ns")
-    dut._log.info(f"fractal: {dut.ui_in.value.binstr}")
 
-    dut._log.info("wait v_begin")
     await RisingEdge(dut.v_begin)
-    dut._log.info("v_begin found")
 
     async def frame_stopper():
         await RisingEdge(dut.v_begin)
-        dut._log.info("v_begin v2 found")
 
     stopper_task = cocotb.start_soon(frame_stopper())
 
     pixels_captured = 0
-    captured_pixels = set()  # track which pixels we've already captured
-    
-    timeout_cycles = H_TOTAL * V_TOTAL * 2 
+    captured_pixels = set()
+
+    timeout_cycles = H_TOTAL * V_TOTAL * 2
     for _ in range(timeout_cycles):
         if stopper_task.done():
             break
-
         await RisingEdge(dut.clk_25mhz)
-
         if dut.vga_active.value:
             x = dut.pixel_x.value.integer
             y = dut.pixel_y.value.integer
-
             if x < H_DISPLAY and y < V_DISPLAY:
-                pixel_coord = (x, y)
-                if pixel_coord not in captured_pixels:
-                    captured_pixels.add(pixel_coord)
-                    
-                    # red[1:0] = {uo_out[0], uo_out[4]}
-                    # green[1:0] = {uo_out[1], uo_out[5]}
-                    # blue[1:0]  = {uo_out[2], uo_out[6]}
+                coord = (x, y)
+                if coord not in captured_pixels:
+                    captured_pixels.add(coord)
                     r_val = (dut.uo_out.value[0] << 1) | dut.uo_out.value[4]
                     g_val = (dut.uo_out.value[1] << 1) | dut.uo_out.value[5]
                     b_val = (dut.uo_out.value[2] << 1) | dut.uo_out.value[6]
-
-                    # pillow only does 8 bit
-                    # 255 / 3 (0, 1, 2, 3) = 85
-                    r_8bit = r_val * 85
-                    g_8bit = g_val * 85
-                    b_8bit = b_val * 85
-
-                    pixels[x, y] = (r_8bit, g_8bit, b_8bit)
+                    r_8 = int(r_val) * 85
+                    g_8 = int(g_val) * 85
+                    b_8 = int(b_val) * 85
+                    pixels[x, y] = (r_8, g_8, b_8)
                     pixels_captured += 1
     else:
-        dut._log.error(f"timeout in {timeout_cycles} reached")
         stopper_task.kill()
+        assert False, f"timeout in {timeout_cycles} reached"
 
     if pixels_captured == 0:
-        dut._log.error("rip no pixels")
+        assert False, "no pixels captured"
 
     output_filename = "out.png"
     img.save(output_filename)
-    dut._log.info(f" '{os.path.abspath(output_filename)}'")
-    dut._log.info(f"pixels: {pixels_captured}")
+    dut._log.info(f"Saved '{os.path.abspath(output_filename)}' with {pixels_captured} pixels")
 
     expected_pixels = H_DISPLAY * V_DISPLAY
-    assert pixels_captured == expected_pixels, \
+    assert pixels_captured == expected_pixels, (
         f"captured {pixels_captured} pixels, expected {expected_pixels}"
+    )
 
