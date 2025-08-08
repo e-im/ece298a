@@ -24,7 +24,7 @@ module tt_um_fractal (
 
     // tile replication. compute one pixel per tile and
     // replicate across an h×v block. expose a few stride presets via uio_in[3:2]
-    // 00: 64×16, 01: 32×8, 10: 32×16, 11: 16×8
+    // 00: 64×16, 01: 32×8 (default), 10: 32×16, 11: 32×8 (alias)
     logic [1:0] stride_sel;
     assign stride_sel = uio_in[3:2];
 
@@ -34,11 +34,11 @@ module tt_um_fractal (
             2'b00: begin h_stride_shift = 4'd6; v_stride_shift = 4'd4; end // 64×16
             2'b01: begin h_stride_shift = 4'd5; v_stride_shift = 4'd3; end // 32×8
             2'b10: begin h_stride_shift = 4'd5; v_stride_shift = 4'd4; end // 32×16
-            default: begin h_stride_shift = 4'd4; v_stride_shift = 4'd3; end // 16×8
+            default: begin h_stride_shift = 4'd5; v_stride_shift = 4'd3; end // 32×8
         endcase
     end
 
-    localparam int MAX_TILES_X = 640 / 16; // worst case (smallest stride)
+    localparam int MAX_TILES_X = 640 / 32; // worst case (smallest allowed stride)
 
     // control signals from UI pins
     wire zoom_in     = ui_in[0];
