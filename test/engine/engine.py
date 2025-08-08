@@ -323,17 +323,12 @@ for params in test_cases:
 
     globals()[test_name] = cocotb.test(test_coroutine)
 
-
-# =====================
-# Additional rigorous tests
-# =====================
-
 def _random_params():
     import random
-    # Pixel range and center/zoom distributions chosen to hit diverse regions
+    # pixel range and center/zoom distributions chosen to hit diverse regions
     pixel_x = random.randint(0, 639)
     pixel_y = random.randint(0, 479)
-    # Generate center in Q11 signed range but pass as 16-bit; engine truncates internally
+    # generate center in Q11 signed range but pass as 16-bit; engine truncates internally
     center_x = to_signed(random.randint(-1024, 1023), 16)  # ~[-4.0, 4.0) in Q3.8 after >>5
     center_y = to_signed(random.randint(-1024, 1023), 16)
     zoom_level = random.randint(0, 15)
