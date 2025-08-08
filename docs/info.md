@@ -10,7 +10,39 @@ The user is able to change the view of the set with the IO pins.
 
 3.  **User Input & Parameter Control**: The `param_controller` module reads user inputs for panning and zooming (`ui_in`). To prevent visual glitches like tearing, it only updates the fractal's parameters (centre coordinates and zoom level) at the beginning of a new frame, signalled by `v_begin` from the `vga` module. The panning speed is dynamically adjusted based on the zoom level.
 
-4.  **Fractal Calculation**: The escape-time algorithm computes iterates of \( z_{n+1} = z_n^2 + c \) using fixed-point arithmetic.
+4.  **Fractal Calculation**: The escape‑time algorithm computes iterates of \( z_{n+1} = z_n^2 + c \) using fixed‑point arithmetic.
+
+#### Escape‑time algorithm (Explanation)
+
+- Pixel -> complex mapping (top‑level signals):
+  - Compute offsets from the screen centre: `dx = pixel_x − 320`, `dy = pixel_y − 240`.
+  - Compute scale factor by shifts: `scale_factor = (1 << FRAC_BITS) >> zoom_shift`.
+  - Map to complex plane in fixed‑point: `c_real = centre_x + ((dx * scale_factor) >> FRAC_BITS)`, similarly for `c_imag`.
+
+- Iteration loop (Q‑format, FRAC_BITS = n):
+
+  ```text
+  z_real = 0; z_imag = 0
+  for i in 0..max_iter_limit:
+      // escape test: |z|^2 > 4.0 → (zr*zr >> n) + (zi*zi >> n) > (4 << n)
+      if ((zr*zr >> n) + (zi*zi >> n)) > (4 << n):
+          return i
+      // z^2 + c with fixed‑point rescale back by >> n
+      zr2 = (zr*zr >> n) - (zi*zi >> n)
+      zi2 = ((zr*zi) << 1) >> n
+      z_real = zr2 + c_real
+      z_imag = zi2 + c_imag
+  return max_iter_limit
+  ```
+
+- Fixed‑point notes (Qm.n):
+  - Stored integer `x` encodes real `x / 2^n`; top‑level uses `FRAC_BITS = 6` for 1×2 timing/area.
+  - After multiplies, shift right by `n` to return to the working Q format.
+  - Constants: `4.0 = (4 << n)`; for `n = 6`, `4.0 = 256`.
+
+- Iteration cap and image quality:
+  - The design caps iterations at the top level (`MAX_ITERATIONS = 16`) to balance detail and throughput.
+  - Larger caps give crisper boundaries but increase compute time. The top uses tile replication (compute once per H×V tile, then replicate) with stride presets on `uio_in[3:2]` to keep full 640×480 VGA without a frame buffer.
 
 5.  **Colour Mapping**: The resulting `iteration_count` from the engine is passed to the `mandelbrot_colour_mapper`. This module translates the numerical iteration count into a 6-bit RGB colour value. It supports two colour schemes (greyscale and fire), selected via `uio_in[0]` (only bit 0 is used). Points determined to be inside the set are coloured black for high contrast.
 

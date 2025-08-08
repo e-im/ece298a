@@ -1,16 +1,32 @@
 ![](../../workflows/gds/badge.svg) ![](../../workflows/docs/badge.svg) ![](../../workflows/test/badge.svg) ![](../../workflows/fpga/badge.svg)
 
-# VGA Mandelbrot Fractal Generator (Tiny Tapeout 1x2)
+# VGA Mandelbrot Fractal Generator (Tiny Tapeout 1×2)
+
+Real‑time Mandelbrot fractal rendered to 640×480 VGA with pan/zoom controls. Design fits a 1×2 TinyTapeout tile using fixed‑point math and tile replication. Colour modes and tile stride presets are selectable via user IO.
 
 - Project documentation:
   - Single source of truth: [docs/info.md](docs/info.md)
   - Contributions: [docs/contributions.md](docs/contributions.md)
+  - [Verification](docs/test.md)
 
 ## What is Tiny Tapeout?
 
 Tiny Tapeout is an educational project that aims to make it easier and cheaper than ever to get your digital and analog designs manufactured on a real chip.
 
 To learn more and get started, visit https://tinytapeout.com.
+
+## Quick start (local)
+
+From `test/`:
+
+```
+make tb-engine
+make tb-vga
+make tb-mandelbrot
+make tb-png
+```
+
+This produces a 640×480 PNG at `test/out.png` (307,200 pixels). For a one‑shot run, use `scripts/run_all_tests.sh`.
 
 ## Set up your Verilog project
 

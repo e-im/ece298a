@@ -47,10 +47,10 @@ pinout:
   uo[7]: "vga_hsync (VGA Horizontal Sync - Active low)"
 
   # Bidirectional pins
-  uio[0]: "colour_mode[0] (Color mode bit 0 - 4 color schemes)"
-  uio[1]: "colour_mode[1] (Color mode bit 1 - 4 color schemes)"
-  uio[2]: "reserved"
-  uio[3]: "reserved"
+  uio[0]: "colour_mode (0=greyscale, 1=fire)"
+  uio[1]: "reserved"
+  uio[2]: "tile_stride_sel[0] (tile stride preset bit 0)"
+  uio[3]: "tile_stride_sel[1] (tile stride preset bit 1)"
   uio[4]: "reserved"
   uio[5]: "reserved"
   uio[6]: "reserved"
